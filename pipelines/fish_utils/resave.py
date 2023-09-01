@@ -1,11 +1,13 @@
-import h5py as h5
 import os
-from glob import glob
 import sys
 import json
+from glob import glob
+import numpy as np
+from natsort import natsorted
+
 import tifffile
 from nd2reader import ND2Reader
-from natsort import natsorted
+import h5py as h5
 
 ############# h5 files #################
 # Split h5 files into individual files and channels, create a folder called "tif" and save them there

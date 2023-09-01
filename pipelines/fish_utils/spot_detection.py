@@ -8,7 +8,7 @@ from skimage.io import imsave
 from skimage.io import imread
 import imageio
 import matplotlib.pyplot as plt
-from matplotlib.colors import Normalize
+from skimage.exposure import rescale_intensity
 from glob import glob
 from natsort import natsorted
 
@@ -127,7 +127,7 @@ def detect_spots(images_path, detection_settings, channels,
         
 
 # plots the spot detection on images, to check if the detection works    
-def plot_detections(path,channel, path_spots=None, out_folder=None):
+def plot_detections(path,channel, path_spots=None, out_folder=None, range_quantiles = (0.02, 0.9999)):
     
     # either the path to the upper folder containing the "detections" folder with merge.csv or the direct path to the merge.csv
     try:
@@ -145,25 +145,30 @@ def plot_detections(path,channel, path_spots=None, out_folder=None):
         out = out_folder
     create_folder(out)
     
-    # iterate over all images in path
+    # get list of images
     tifs = glob(f"{path}/tif/*.tif")
     tifs = [os.path.normpath(filepath) for filepath in tifs] # remove double //
     tifs = natsorted(tifs)
+    
+    # filter list for channels to visualise
+    ch = ["_ch" + str(num) + "." for num in channel]
+    tifs = [path for path in tifs if any(item in path for item in ch)]
     
     # iterate over all images in path
     for img in tifs:
         current_spots = spots[spots['img'] == img] # get all spots for image
         
         img1 = imread(img).max(axis=0)
-        norm = Normalize(vmin=0, vmax=np.max(img1)/5)
+        intensity_range = tuple(np.quantile(img1, range_quantiles))
+        img_norm = rescale_intensity(img1, in_range=intensity_range, out_range='uint8').astype(np.uint8)
 
         fig, axes = plt.subplots(1, 2, figsize=(10, 5))
 
         # plot side by side
         fig.suptitle(os.path.basename(img).rsplit(".", 1)[0])
         plt.subplots_adjust(top=1)
-        axes[0].imshow(img1,norm=norm)
-        axes[1].imshow(img1,norm=norm)
+        axes[0].imshow(img_norm)
+        axes[1].imshow(img_norm)
 
         for _, row in current_spots.iterrows():
             x, y, intensity = row['x'], row['y'], row['intensity']
