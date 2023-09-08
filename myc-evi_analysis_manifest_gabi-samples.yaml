@@ -1,3 +1,5 @@
+# Gabi samples first batch GS66-69
+
 -
   sample_name: GS066
   base_path: /data/agl_data/NanoFISH/Gabi/GS066_20230814_K562_EVI1_GFP_EVI-MYC
@@ -47,6 +49,8 @@
     561-CSU-W1: evi1
     640-CSU-W1: ctrl
 
+# Gabi Samples second batch GS72-75
+
 -
   sample_name: GS072
   base_path: /data/agl_data/NanoFISH/Gabi/GS072_20230818_K562-EVI1-GFP_EVI-MYC
@@ -95,6 +99,74 @@
   targets:
     561-CSU-W1: evi1
     640-CSU-W1: ctrl
+
+# 23AM08-05/06 : "third batch"
+
+-
+  sample_name: 23AM08-05_1
+  base_path: /data/agl_data/AndreasMaiser/NSD/23AM08-05
+  subsample_pattern: 23AM08-05_1
+  distances_path: spot-mask-distances
+  spot_path: spot-detection
+  cell_type: clone8
+  # mapping channel name -> FISH target
+  targets:
+    561-CSU-W1: evi1
+    640-CSU-W1: myc
+
+-
+  sample_name: 23AM08-05_2
+  base_path: /data/agl_data/AndreasMaiser/NSD/23AM08-05
+  subsample_pattern: 23AM08-05_2
+  distances_path: spot-mask-distances
+  spot_path: spot-detection
+  cell_type: clone8
+  # mapping channel name -> FISH target
+  targets:
+    561-CSU-W1: evi1
+    640-CSU-W1: ctrl
+
+-
+  sample_name: 23AM08-06_1
+  base_path: /data/agl_data/AndreasMaiser/NSD/23AM08-06
+  subsample_pattern: 23AM08-06_1
+  distances_path: spot-mask-distances
+  spot_path: spot-detection
+  cell_type: t(3,8)
+  # mapping channel name -> FISH target
+  targets:
+    561-CSU-W1: evi1
+    640-CSU-W1: myc
+
+
+-
+  sample_name: 23AM08-06_2
+  base_path: /data/agl_data/AndreasMaiser/NSD/23AM08-06
+  subsample_pattern: 23AM08-06_2
+  distances_path: spot-mask-distances
+  spot_path: spot-detection
+  cell_type: t(3,8)
+  # mapping channel name -> FISH target
+  targets:
+    561-CSU-W1: evi1
+    640-CSU-W1: ctrl
+
+
+-
+  sample_name: 23AM08-06_3
+  base_path: /data/agl_data/AndreasMaiser/NSD/23AM08-06
+  subsample_pattern: 23AM08-06_3
+  distances_path: spot-mask-distances
+  spot_path: spot-detection
+  cell_type: t(3,8)
+  # mapping channel name -> FISH target
+  targets:
+    561-CSU-W1: evi1
+    640-CSU-W1: myc
+
+
+
+
 
 # 23AM07-05: only single channel (488 was unusable)
 # -
