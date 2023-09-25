@@ -53,6 +53,30 @@ def resave_nd2(nd2files):
             
             for ch in range(img.shape[3]):
                 tifffile.imsave(f"{nd2files}/tif/{name}_ch{ch}.tif", img[:, :, :, ch].astype(np.uint16))
+                
+                
+####### moredimensional nd2 ###############
+# reads all nd2 files where 1 file contains several stacks (created by the JOBS script) and resaves them as .tif
+
+def resave_auto_nd2(nd2files):
+    
+    nd2files_paths = glob(nd2files + "/raw/*nd2")
+    
+    # create out "tif" directory if it doesnt exist yet
+    out = f"{nd2files}/tif/"
+    os.makedirs(out, exist_ok=True)
+
+    for nd2_file in nd2files_paths:
+        with ND2Reader(nd2_file) as img:
+            img.bundle_axes = ['z', 'y', 'x', 'c', 'v']
+            img = np.array(img[0])
+
+            for field in range(img.shape[4]): 
+                base_name = os.path.basename(nd2_file).rsplit(".", 1)[0]
+                name = f"{base_name}_field{field}"
+
+                for ch in range(img.shape[3]):
+                    tifffile.imsave(f"{nd2files}/tif/{name}_ch{ch}.tif", img[:, :, :, ch, field].astype(np.uint16))
 
 ################################################
 # delete tif files after analysis is done to save space
