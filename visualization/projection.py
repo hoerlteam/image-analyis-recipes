@@ -27,6 +27,18 @@ def load_multichannel_nd2(file_path):
     
     return imgs, channel_names, pixel_size
 
+def load_multistack_multichannel_nd2(file_path):
+    with ND2File(file_path) as reader:
+        # nice OC name without whitespace
+        channel_names = map(lambda s: s.channel.name.strip().replace(' ', '-'), reader.metadata.channels)
+        # to cyzx
+        # NOTE: needs testing for different dimensionality files 
+        imgs = reader.asarray().transpose((0,2,1,3,4))
+        # invert xyz voxel size to zyx to match img array
+        pixel_size = reader.voxel_size()[::-1]
+    
+    return imgs, channel_names, pixel_size
+
 def get_orthogonal_projections_8bit(img, pixel_size=None, projection_type='max', intensity_range='auto', auto_range_quantiles = (0.02, 0.999)):
 
     # if no pixel size given, assume 1 (equal xyz)
