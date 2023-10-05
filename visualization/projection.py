@@ -3,6 +3,7 @@ import numpy as np
 from skimage.exposure import rescale_intensity
 from skimage.transform import resize
 from nd2 import ND2File
+from msr import OBFFile
 
 def _get_projection_function(name):
     try:
