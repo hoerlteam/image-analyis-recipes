@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 from skimage.exposure import rescale_intensity
 from glob import glob
 from natsort import natsorted
+import json
 
 # creates the outout folder if it doesn't yet exist
 def create_folder(folder_path):
@@ -67,41 +68,6 @@ def make_fiji_command(images_path,out_path,settings_file_path,macro_path,fiji_pa
     )
     
     return(fiji_command)
-
-
-# combines all spot csvs from all images
-def combine_csv(path):
-
-    folder_path = f"{path}/detections/"
-    files = glob(f"{folder_path}*.csv")
-    files = natsorted(files)
-
-    dataframes = []
-
-    for file_name in files:
-        
-        try:
-            df = pd.read_csv(file_name)
-
-            # Extract the image name from the file name
-            img = f"{path}tif/{file_name.split('_results_', 1)[1].split('_aniso', 1)[0]}"
-
-            # Extract the channel number from the file name
-            channel = int(file_name.split('_ch', 1)[1].split('.tif', 1)[0])
-
-            # Add the 'img name' and 'channel' columns to the DataFrame
-            df.insert(0, 'img', img)
-            df.insert(1, 'channel', channel)
-
-            dataframes.append(df)
-
-        # exception for empty datafarmes
-        except: 
-                pass
-
-    # Merge all DataFrames into a single DataFrame and save
-    merged_df = pd.concat(dataframes, ignore_index=True)
-    merged_df.to_csv(f"{folder_path}/merge.csv", index=False)
     
 
 # detect all spots in a imaged using RS-FISH, based on a sepcified detection config for each channel    
@@ -179,3 +145,81 @@ def plot_detections(path,channel, path_spots=None, out_folder=None, range_quanti
         fig.savefig(f"{out}{os.path.basename(img)}.png",dpi=300)
         
         plt.close(fig)
+        
+
+# combines all spot csvs from all images
+def combine_csv(path):
+
+    folder_path = f"{path}/detections/"
+    files = glob(f"{folder_path}*.csv")
+    files = natsorted(files)
+
+    dataframes = []
+
+    for file_name in files:
+        
+        try:
+            
+            # skip merge files to prevent self-merging
+            if "merge" in file_name:
+                continue
+            
+            df = pd.read_csv(file_name)
+
+            # Extract the image name from the file name
+            img = f"{path}tif/{file_name.split('_results_', 1)[1].split('_aniso', 1)[0]}"
+
+            # Extract the channel number from the file name
+            channel = int(file_name.split('_ch', 1)[1].split('.tif', 1)[0])
+
+            # Add the 'img name' and 'channel' columns to the DataFrame
+            df.insert(0, 'img', img)
+            df.insert(1, 'channel', channel)
+
+            dataframes.append(df)
+
+        # exception for empty datafarmes
+        except: 
+                pass
+
+    # Merge all DataFrames into a single DataFrame and save
+    merged_df = pd.concat(dataframes, ignore_index=True)
+    
+    # add spot number
+    merged_df['spot_idx'] = merged_df.groupby(['img', 'channel']).cumcount() + 1
+    merged_df.to_csv(f"{folder_path}/merge.csv", index=False)
+
+    return(merged_df)    
+        
+        
+# add acquisition info to spots
+def add_sample_info(path,info=None):
+    
+    spots = pd.read_csv(f"{path}/detections/merge.csv")
+    
+    # get metadata
+    if info == None:
+        info = f"{path}/acquisition_info.json"
+    else:
+        pass
+    
+    with open(info, 'r') as file:
+        metadata = json.load(file)
+        
+    metadata = pd.concat([pd.json_normalize(metadata.get(key, {})).add_prefix(f'{key}.') for key in ['experiment', 'preparation', 'acquisition']], axis=1)    
+    
+    channels = metadata['acquisition.channels'][0]
+    
+    # expand columns with multiple entries (eg several channels)
+    columns_to_explode = [col for col in metadata.columns if any(isinstance(item, list) for item in metadata[col])]
+    metadata = metadata.explode(columns_to_explode)
+    
+    # unfiy channel names in acquisition info and the spots df
+    channel_mapping = dict(zip(channels, list(range(0,len(channels)))))
+    metadata['acquisition.channels'] = metadata['acquisition.channels'].map(channel_mapping)
+    
+    
+    # combine metadata with spots
+    df = spots.merge(metadata, right_on="acquisition.channels", left_on="channel", how='left')
+    
+    df.to_csv(f"{path}/detections/merge.csv", index=False)
