@@ -3,6 +3,7 @@ import numpy as np
 from skimage.exposure import rescale_intensity
 from skimage.transform import resize
 from nd2 import ND2File
+from msr import OBFFile
 
 def _get_projection_function(name):
     try:
@@ -38,6 +39,30 @@ def load_multistack_multichannel_nd2(file_path):
         pixel_size = reader.voxel_size()[::-1]
     
     return imgs, channel_names, pixel_size
+
+def load_msr(file):
+    with OBFFile(file) as f:
+            
+        imgs = []
+        channel_names = []
+
+        for idx in range(0,len(f.sizes)):
+
+            # reading image data
+            img = f.read_stack(idx) # read stack with index idx into numpy array
+            imgs.append(img)
+
+            # metadata
+            stack_sizes = f.sizes # list of stack sizes/shapes, including stack and dimension names
+            pixel_sizes = f.pixel_sizes # like sizes, but with pixel sizes (unit: meters)
+            channel_names.append(pixel_sizes[idx].name)
+            pixel_sizes = [pixel_sizes[idx].sizes['ExpControl Z'],
+                           pixel_sizes[idx].sizes['ExpControl Y'],
+                           pixel_sizes[idx].sizes['ExpControl X']]
+
+        imgs = np.asarray(imgs)
+
+        return(imgs, channel_names, pixel_sizes) 
 
 def get_orthogonal_projections_8bit(img, pixel_size=None, projection_type='max', intensity_range='auto', auto_range_quantiles = (0.02, 0.999)):
 
