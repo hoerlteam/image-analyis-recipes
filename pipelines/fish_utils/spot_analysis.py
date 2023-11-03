@@ -111,12 +111,14 @@ def get_sensitivity(masks,path_spots,out,mask_ending="_cp_masks"):
         # for 2d masks
         if len(cleared_mask.shape) == 2:            
             cell = labelled_mask[subset_df['y'].astype(int), subset_df['x'].astype(int)]
-            subset_df.insert(1, 'cell', cell)
+            subset_df.loc[:, 'cell'] = cell if 'cell' in subset_df.columns else cell
+#             subset_df.insert(1, 'cell', cell)
             
         # for 3d masks
         elif len(cleared_mask.shape) == 3:
             cell = labelled_mask[subset_df['z'].astype(int), subset_df['y'].astype(int), subset_df['x'].astype(int)]
-            subset_df.insert(1, 'cell', cell)
+            subset_df.loc[:, 'cell'] = cell if 'cell' in subset_df.columns else cell
+#             subset_df.insert(1, 'cell', cell)
 
         # add number of spots in each cell
         cell_df = pd.DataFrame({'cell': np.unique(cleared_mask)})
@@ -124,7 +126,8 @@ def get_sensitivity(masks,path_spots,out,mask_ending="_cp_masks"):
         cell_df = spots.merge(cell_df, on='cell', how='outer')
         
         cell_df['count'].fillna(0, inplace=True)
-        cell_df['img'].fillna(subset_df['img'].unique()[0], inplace=True)
+        if not subset_df['img'].empty:
+            cell_df['img'].fillna(subset_df['img'].unique()[0], inplace=True)
         
         # measure cell sizes using regionprops
         region_props = regionprops(cleared_mask)
