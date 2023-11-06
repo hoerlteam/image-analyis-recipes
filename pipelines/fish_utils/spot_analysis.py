@@ -119,15 +119,15 @@ def get_sensitivity(masks,path_spots,out,mask_ending="_cp_masks"):
             cell = labelled_mask[subset_df['z'].astype(int), subset_df['y'].astype(int), subset_df['x'].astype(int)]
             subset_df.loc[:, 'cell'] = cell if 'cell' in subset_df.columns else cell
 #             subset_df.insert(1, 'cell', cell)
+    
 
         # add number of spots in each cell
-        cell_df = pd.DataFrame({'cell': np.unique(cleared_mask)})
-        spots = subset_df.groupby(['img','cell']).size().reset_index(name='count')
-        cell_df = spots.merge(cell_df, on='cell', how='outer')
-        
-        cell_df['count'].fillna(0, inplace=True)
-        if not subset_df['img'].empty:
-            cell_df['img'].fillna(subset_df['img'].unique()[0], inplace=True)
+        img_names = pd.DataFrame({'img': subset_df['img'].unique()}) # all unique img names
+        cell_df = pd.DataFrame({'cell': np.unique(cleared_mask)}) # all cells
+        cell_df = cell_df.merge(img_names,how='cross')
+        spots = subset_df.groupby(['img','cell']).size().reset_index(name='count') # cell id for each spot        
+        cell_df = spots.merge(cell_df, on=['img','cell'], how='outer')
+        cell_df['count'].fillna(0, inplace=True) # all cells without spots get 0
         
         # measure cell sizes using regionprops
         region_props = regionprops(cleared_mask)
@@ -137,13 +137,18 @@ def get_sensitivity(masks,path_spots,out,mask_ending="_cp_masks"):
         
         df_list.append(cell_df)
       
-    spots_per_cell = pd.concat(df_list, ignore_index=True)
+    # combine all images into 1 df
+    spots_per_cell = pd.concat(df_list, ignore_index=True) 
     
     # remove too small cells (faulty segmentation)
     spots_per_cell = spots_per_cell[spots_per_cell['cell_size'] > 50000]
+
+    # add metadata
+    columns_to_drop = ['x', 'y', 'z', 'spot_idx', 't', 'c', 'intensity','cell','whole_cell']
+    df = df.drop(columns=[col for col in columns_to_drop if col in df.columns]) # crop spot specific cols
     
-    # get sensitivity
-    spots_per_cell = spots_per_cell[spots_per_cell.cell != 0]
+    spots_per_cell = spots_per_cell.merge(df,on="img",how="left")
+    spots_per_cell = spots_per_cell.dropna(subset=["channel"]).drop_duplicates()
     
     spots_per_cell.to_csv(out, index=False)
     
