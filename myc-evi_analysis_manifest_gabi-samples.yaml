@@ -1,11 +1,11 @@
-# Gabi samples first batch GS66-69
-
+### Gabi samples first batch GS66-69
 -
   sample_name: GS066
+  batch_name: gs66_69
   base_path: /data/agl_data/NanoFISH/Gabi/GS066_20230814_K562_EVI1_GFP_EVI-MYC
   subsample_pattern:
   distances_path: spot-mask-distances
-  spot_path: spot-detection
+  spot_path: spot-detection-chromatic-shift-corrected
   cell_type: clone8
   # mapping channel name -> FISH target
   targets:
@@ -14,10 +14,11 @@
 
 -
   sample_name: GS067
+  batch_name: gs66_69
   base_path: /data/agl_data/NanoFISH/Gabi/GS067_20230814_K562_EVI1_GFP_EVI-CTRL
   subsample_pattern:
   distances_path: spot-mask-distances
-  spot_path: spot-detection
+  spot_path: spot-detection-chromatic-shift-corrected
   cell_type: clone8
   # mapping channel name -> FISH target
   targets:
@@ -26,37 +27,39 @@
 
 -
   sample_name: GS068
+  batch_name: gs66_69
   base_path: /data/agl_data/NanoFISH/Gabi/GS068_20230814_K562_EVI1_GFP_t(3-8)_EVI-MYC
   subsample_pattern:
   distances_path: spot-mask-distances
-  spot_path: spot-detection
+  spot_path: spot-detection-chromatic-shift-corrected
   cell_type: t(3,8)
   # mapping channel name -> FISH target
   targets:
     561-CSU-W1: evi1
     640-CSU-W1: myc
 
-
 -
   sample_name: GS069
+  batch_name: gs66_69
   base_path: /data/agl_data/NanoFISH/Gabi/GS069_20230814_K562_EVI1_GFP_t(3-8)_EVI-CTRL
   subsample_pattern:
   distances_path: spot-mask-distances
-  spot_path: spot-detection
+  spot_path: spot-detection-chromatic-shift-corrected
   cell_type: t(3,8)
   # mapping channel name -> FISH target
   targets:
     561-CSU-W1: evi1
     640-CSU-W1: ctrl
 
-# Gabi Samples second batch GS72-75
+### Gabi Samples second batch GS72-75
 
 -
   sample_name: GS072
+  batch_name: gs72_75
   base_path: /data/agl_data/NanoFISH/Gabi/GS072_20230818_K562-EVI1-GFP_EVI-MYC
   subsample_pattern:
   distances_path: spot-mask-distances
-  spot_path: spot-detection
+  spot_path: spot-detection-chromatic-shift-corrected
   cell_type: clone8
   # mapping channel name -> FISH target
   targets:
@@ -65,10 +68,11 @@
 
 -
   sample_name: GS073
+  batch_name: gs72_75
   base_path: /data/agl_data/NanoFISH/Gabi/GS073_20230818_K562-EVI1-GFP_EVI-CTRL
   subsample_pattern:
   distances_path: spot-mask-distances
-  spot_path: spot-detection
+  spot_path: spot-detection-chromatic-shift-corrected
   cell_type: clone8
   # mapping channel name -> FISH target
   targets:
@@ -77,37 +81,172 @@
 
 -
   sample_name: GS074
+  batch_name: gs72_75
   base_path: /data/agl_data/NanoFISH/Gabi/GS074_20230818_K562-EVI1-GFP_t(3-8)_EVI-MYC
   subsample_pattern:
   distances_path: spot-mask-distances
-  spot_path: spot-detection
+  spot_path: spot-detection-chromatic-shift-corrected
   cell_type: t(3,8)
   # mapping channel name -> FISH target
   targets:
     561-CSU-W1: evi1
     640-CSU-W1: myc
 
-
 -
   sample_name: GS075
+  batch_name: gs72_75
   base_path: /data/agl_data/NanoFISH/Gabi/GS075_20230818_K562-EVI1-GFP_t(3-8)_EVI-CTRL
   subsample_pattern:
   distances_path: spot-mask-distances
-  spot_path: spot-detection
+  spot_path: spot-detection-chromatic-shift-corrected
   cell_type: t(3,8)
   # mapping channel name -> FISH target
   targets:
     561-CSU-W1: evi1
     640-CSU-W1: ctrl
 
-# 23AM08-05/06 : "third batch"
+### Gabi Samples 3rd batch GS87&88
+
+-
+  sample_name: GS087
+  batch_name: gs87_88
+  base_path: /data/agl_data/NanoFISH/Gabi/GS087_K562-EVI1-GFP_EVI-CTRL/20230927_run0_sd/
+  subsample_pattern:
+  distances_path: spot-mask-distances
+  spot_path: spot-detection-chromatic-shift-corrected
+  cell_type: clone8
+  # mapping channel name -> FISH target
+  targets:
+    561-CSU-W1: evi1
+    640-CSU-W1: ctrl
+
+-
+  sample_name: GS088
+  batch_name: gs87_88
+  base_path: /data/agl_data/NanoFISH/Gabi/GS088_K562-EVI1-GFP_EVI-MYC/20230927_run0_sd/
+  subsample_pattern:
+  distances_path: spot-mask-distances
+  spot_path: spot-detection-chromatic-shift-corrected
+  cell_type: clone8
+  # mapping channel name -> FISH target
+  targets:
+    561-CSU-W1: evi1
+    640-CSU-W1: myc
+
+### 23AM07-05: only single channel (488 was unusable)
+-
+  sample_name: 23AM07-05_3
+  batch_name: 23am07-05
+  base_path: /data/agl_data/AndreasMaiser/NSD/23AM07-05
+  subsample_pattern: 23AM07-05_3
+  distances_path: spot-mask-distances
+  spot_path: spot-detection-chromatic-shift-corrected
+  cell_type: clone8
+  # mapping channel name -> FISH target
+  targets:
+    640-CSU-W1: evi1
+
+-
+  sample_name: 23AM07-05_5
+  batch_name: 23am07-05
+  base_path: /data/agl_data/AndreasMaiser/NSD/23AM07-05
+  subsample_pattern: 23AM07-05_5
+  distances_path: spot-mask-distances
+  spot_path: spot-detection-chromatic-shift-corrected
+  cell_type: clone8
+  # mapping channel name -> FISH target
+  targets:
+    561-CSU-W1: evi1
+
+### 23AM08-01: 561 (myc) generally good, 640 usually weak
+-
+  sample_name: 23AM08-01_1
+  batch_name: 23am08-01
+  base_path: /data/agl_data/AndreasMaiser/NSD/23AM08-01
+  subsample_pattern: 23AM08-01_1
+  distances_path: spot-mask-distances
+  spot_path: spot-detection-chromatic-shift-corrected
+  cell_type: clone8
+  # mapping channel name -> FISH target
+  targets:
+    561-CSU-W1: evi1
+    640-CSU-W1: myc
+
+-
+  sample_name: 23AM08-01_2
+  batch_name: 23am08-01
+  base_path: /data/agl_data/AndreasMaiser/NSD/23AM08-01
+  subsample_pattern: 23AM08-01_2
+  distances_path: spot-mask-distances
+  spot_path: spot-detection-chromatic-shift-corrected
+  cell_type: clone8
+  # mapping channel name -> FISH target
+  targets:
+    561-CSU-W1: evi1
+    640-CSU-W1: ctrl
+
+-
+  sample_name: 23AM08-01_4
+  batch_name: 23am08-01
+  base_path: /data/agl_data/AndreasMaiser/NSD/23AM08-01
+  subsample_pattern: 23AM08-01_4
+  distances_path: spot-mask-distances
+  spot_path: spot-detection-chromatic-shift-corrected
+  cell_type: clone8
+  # mapping channel name -> FISH target
+  targets:
+    561-CSU-W1: evi1
+    640-CSU-W1: myc
+
+-
+  sample_name: 23AM08-01_5
+  batch_name: 23am08-01
+  base_path: /data/agl_data/AndreasMaiser/NSD/23AM08-01
+  subsample_pattern: 23AM08-01_5
+  distances_path: spot-mask-distances
+  spot_path: spot-detection-chromatic-shift-corrected
+  cell_type: clone8
+  # mapping channel name -> FISH target
+  targets:
+    561-CSU-W1: evi1
+    640-CSU-W1: myc
+
+-
+  sample_name: 23AM08-01_6
+  batch_name: 23am08-01
+  base_path: /data/agl_data/AndreasMaiser/NSD/23AM08-01
+  subsample_pattern: 23AM08-01_6
+  distances_path: spot-mask-distances
+  spot_path: spot-detection-chromatic-shift-corrected
+  cell_type: clone8
+  # mapping channel name -> FISH target
+  targets:
+    561-CSU-W1: evi1
+    640-CSU-W1: ctrl
+
+### 23AM08-02
+-
+  sample_name: 23AM08-02_4
+  batch_name: 23am08-02
+  base_path: /data/agl_data/AndreasMaiser/NSD/23AM08-02
+  subsample_pattern: 23AM08-02_4
+  distances_path: spot-mask-distances
+  spot_path: spot-detection-chromatic-shift-corrected
+  cell_type: clone8
+  # mapping channel name -> FISH target
+  targets:
+    561-CSU-W1: evi1
+    640-CSU-W1: myc
+
+### 23AM08-05
 
 -
   sample_name: 23AM08-05_1
+  batch_name: 23am08-05
   base_path: /data/agl_data/AndreasMaiser/NSD/23AM08-05
   subsample_pattern: 23AM08-05_1
   distances_path: spot-mask-distances
-  spot_path: spot-detection
+  spot_path: spot-detection-chromatic-shift-corrected
   cell_type: clone8
   # mapping channel name -> FISH target
   targets:
@@ -116,225 +255,82 @@
 
 -
   sample_name: 23AM08-05_2
+  batch_name: 23am08-05
   base_path: /data/agl_data/AndreasMaiser/NSD/23AM08-05
   subsample_pattern: 23AM08-05_2
   distances_path: spot-mask-distances
-  spot_path: spot-detection
+  spot_path: spot-detection-chromatic-shift-corrected
   cell_type: clone8
   # mapping channel name -> FISH target
   targets:
     561-CSU-W1: evi1
     640-CSU-W1: ctrl
 
--
-  sample_name: 23AM08-06_1
-  base_path: /data/agl_data/AndreasMaiser/NSD/23AM08-06
-  subsample_pattern: 23AM08-06_1
-  distances_path: spot-mask-distances
-  spot_path: spot-detection
-  cell_type: t(3,8)
-  # mapping channel name -> FISH target
-  targets:
-    561-CSU-W1: evi1
-    640-CSU-W1: myc
-
+### 23AM08-06
 
 -
   sample_name: 23AM08-06_2
+  batch_name: 23am08-06
   base_path: /data/agl_data/AndreasMaiser/NSD/23AM08-06
   subsample_pattern: 23AM08-06_2
   distances_path: spot-mask-distances
-  spot_path: spot-detection
+  spot_path: spot-detection-chromatic-shift-corrected
   cell_type: t(3,8)
   # mapping channel name -> FISH target
   targets:
     561-CSU-W1: evi1
     640-CSU-W1: ctrl
 
-
 -
   sample_name: 23AM08-06_3
+  batch_name: 23am08-06
   base_path: /data/agl_data/AndreasMaiser/NSD/23AM08-06
   subsample_pattern: 23AM08-06_3
   distances_path: spot-mask-distances
-  spot_path: spot-detection
+  spot_path: spot-detection-chromatic-shift-corrected
   cell_type: t(3,8)
   # mapping channel name -> FISH target
   targets:
     561-CSU-W1: evi1
     640-CSU-W1: myc
 
+### 23AM10-01
 
+-
+  sample_name: 23AM10-01_1
+  batch_name: 23am10-01
+  base_path: /data/agl_data/AndreasMaiser/NSD/23AM10-01_1/
+  subsample_pattern: 
+  distances_path: spot-mask-distances
+  spot_path: spot-detection-chromatic-shift-corrected
+  cell_type: clone8
+  # mapping channel name -> FISH target
+  targets:
+    561-CSU-W1: myc
+    640-CSU-W1: evi1
 
+-
+  sample_name: 23AM10-01_2
+  batch_name: 23am10-01
+  base_path: /data/agl_data/AndreasMaiser/NSD/23AM10-01_2/
+  subsample_pattern:
+  distances_path: spot-mask-distances
+  spot_path: spot-detection-chromatic-shift-corrected
+  cell_type: clone8
+  # mapping channel name -> FISH target
+  targets:
+    561-CSU-W1: ctrl
+    640-CSU-W1: evi1
 
-
-# 23AM07-05: only single channel (488 was unusable)
-# -
-#   sample_name: 23AM07-05_3
-#   base_path: /data/agl_data/AndreasMaiser/NSD/23AM07-05
-#   subsample_pattern: 23AM07-05_3
-#   distances_path: spot-mask-distances
-#   spot_path: spot-mask-distances
-#   cell_type: clone8
-#   # mapping channel name -> FISH target
-#   targets:
-#     640-CSU-W1: evi1
-
-# -
-#   sample_name: 23AM07-05_5
-#   base_path: /data/agl_data/AndreasMaiser/NSD/23AM07-05
-#   subsample_pattern: 23AM07-05_5
-#   distances_path: spot-mask-distances
-#   cell_type: clone8
-#   # mapping channel name -> FISH target
-#   targets:
-#     561-CSU-W1: evi1
-
-# # 23AM08-01: 561 (myc) generally good, 640 usually weak
-# -
-#   sample_name: 23AM08-01_1
-#   base_path: /data/agl_data/AndreasMaiser/NSD/23AM08-01
-#   subsample_pattern: 23AM08-01_1
-#   distances_path: spot-mask-distances
-#   cell_type: clone8
-#   # mapping channel name -> FISH target
-#   targets:
-#     561-CSU-W1: evi1
-#     640-CSU-W1: myc
-
-# -
-#   sample_name: 23AM08-01_2
-#   base_path: /data/agl_data/AndreasMaiser/NSD/23AM08-01
-#   subsample_pattern: 23AM08-01_2
-#   distances_path: spot-mask-distances
-#   cell_type: clone8
-#   # mapping channel name -> FISH target
-#   targets:
-#     561-CSU-W1: evi1
-#     640-CSU-W1: ctrl
-
-
-# -
-#   sample_name: 23AM08-01_4
-#   base_path: /data/agl_data/AndreasMaiser/NSD/23AM08-01
-#   subsample_pattern: 23AM08-01_4
-#   distances_path: spot-mask-distances
-#   cell_type: clone8
-#   # mapping channel name -> FISH target
-#   targets:
-#     561-CSU-W1: evi1
-#     640-CSU-W1: myc
-
-# -
-#   sample_name: 23AM08-01_5
-#   base_path: /data/agl_data/AndreasMaiser/NSD/23AM08-01
-#   subsample_pattern: 23AM08-01_5
-#   distances_path: spot-mask-distances
-#   cell_type: clone8
-#   # mapping channel name -> FISH target
-#   targets:
-#     561-CSU-W1: evi1
-#     640-CSU-W1: myc
-
-# -
-#   sample_name: 23AM08-01_6
-#   base_path: /data/agl_data/AndreasMaiser/NSD/23AM08-01
-#   subsample_pattern: 23AM08-01_6
-#   distances_path: spot-mask-distances
-#   cell_type: clone8
-#   # mapping channel name -> FISH target
-#   targets:
-#     561-CSU-W1: evi1
-#     640-CSU-W1: ctrl
-
-# # 23AM08-02
-# -
-#   sample_name: 23AM08-02_4
-#   base_path: /data/agl_data/AndreasMaiser/NSD/23AM08-02
-#   subsample_pattern: 23AM08-02_4
-#   distances_path: spot-mask-distances
-#   cell_type: clone8
-#   # mapping channel name -> FISH target
-#   targets:
-#     561-CSU-W1: evi1
-#     640-CSU-W1: myc
-
-# -
-#   sample_name: 23AM08-02_5
-#   base_path: /data/agl_data/AndreasMaiser/NSD/23AM08-02
-#   subsample_pattern: 23AM08-02_5
-#   distances_path: spot-mask-distances
-#   cell_type: clone8
-#   # mapping channel name -> FISH target
-#   targets:
-#     561-CSU-W1: evi1
-#     640-CSU-W1: myc
-
-# -
-#   sample_name: 23AM08-02_6
-#   base_path: /data/agl_data/AndreasMaiser/NSD/23AM08-02
-#   subsample_pattern: 23AM08-02_6
-#   distances_path: spot-mask-distances
-#   cell_type: clone8
-#   # mapping channel name -> FISH target
-#   targets:
-#     561-CSU-W1: evi1
-#     640-CSU-W1: ctrl
-
-
-# # 23AM08-03
-# -
-#   sample_name: 23AM08-03_1
-#   base_path: /data/agl_data/AndreasMaiser/NSD/23AM08-03
-#   subsample_pattern: 23AM08-03_1
-#   distances_path: spot-mask-distances
-#   cell_type: t(3,8)
-#   # mapping channel name -> FISH target
-#   targets:
-#     561-CSU-W1: evi1
-#     640-CSU-W1: myc
-
-
-# -
-#   sample_name: 23AM08-03_3
-#   base_path: /data/agl_data/AndreasMaiser/NSD/23AM08-03
-#   subsample_pattern: 23AM08-03_3
-#   distances_path: spot-mask-distances
-#   cell_type: t(3,8)
-#   # mapping channel name -> FISH target
-#   targets:
-#     561-CSU-W1: evi1
-#     640-CSU-W1: myc
-
-# -
-#   sample_name: 23AM08-03_4
-#   base_path: /data/agl_data/AndreasMaiser/NSD/23AM08-03
-#   subsample_pattern: 23AM08-03_4
-#   distances_path: spot-mask-distances
-#   cell_type: t(3,8)
-#   # mapping channel name -> FISH target
-#   targets:
-#     561-CSU-W1: evi1
-#     640-CSU-W1: ctrl
-
-# -
-#   sample_name: 23AM08-03_5
-#   base_path: /data/agl_data/AndreasMaiser/NSD/23AM08-03
-#   subsample_pattern: 23AM08-03_5
-#   distances_path: spot-mask-distances
-#   cell_type: t(3,8)
-#   # mapping channel name -> FISH target
-#   targets:
-#     561-CSU-W1: evi1
-#     640-CSU-W1: myc
-
-# -
-#   sample_name: 23AM08-03_6
-#   base_path: /data/agl_data/AndreasMaiser/NSD/23AM08-03
-#   subsample_pattern: 23AM08-03_6
-#   distances_path: spot-mask-distances
-#   cell_type: t(3,8)
-#   # mapping channel name -> FISH target
-#   targets:
-#     561-CSU-W1: evi1
-#     640-CSU-W1: ctrl
+-
+  sample_name: 23AM10-01_3
+  batch_name: 23am10-01
+  base_path: /data/agl_data/AndreasMaiser/NSD/23AM10-01_3/
+  subsample_pattern:
+  distances_path: spot-mask-distances
+  spot_path: spot-detection-chromatic-shift-corrected
+  cell_type: clone8
+  # mapping channel name -> FISH target
+  targets:
+    561-CSU-W1: myc
+    640-CSU-W1: evi1
