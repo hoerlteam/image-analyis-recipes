@@ -42,6 +42,7 @@ def resave_h5(folder):
 def resave_nd2(nd2files):
     
     nd2files_paths = glob(nd2files + "/raw/*nd2")
+#     nd2files_paths = glob(nd2files + "/*nd2")
     
     # create out "tif" directory if it doesnt exist yet
     out = f"{nd2files}/tif/"
@@ -84,7 +85,7 @@ def resave_nd2(nd2files):
 #### updated version
 def resave_auto_nd2(nd2files):
     
-    nd2files_paths = glob(nd2files + "/raw/*nd2")
+    nd2files_paths = glob(nd2files + "/*nd2")
     
     # create out "tif" directory if it doesnt exist yet
     out = f"{nd2files}/tif/"
@@ -117,14 +118,14 @@ def resave_msr(folder,out):
 
         with OBFFile(file) as f:
 
-            for idx in range(0,len(f.sizes)):
+            for idx in range(0,len(f.shapes)):
                 
                 # reading image data
                 img = f.read_stack(idx) # read stack with index idx into numpy array
 
                 # metadata
                 stack_sizes = f.sizes # list of stack sizes/shapes, including stack and dimension names
-                pixel_sizes = f.pixel_sizes # like sizes, but with pixel sizes (unit: meters)
+                pixel_sizes = f.pixel_shapes # like sizes, but with pixel sizes (unit: meters)
                 
                 # save
                 name = os.path.splitext(os.path.basename(file))[0]
