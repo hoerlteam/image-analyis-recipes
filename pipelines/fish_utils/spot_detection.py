@@ -72,12 +72,13 @@ def make_fiji_command(images_path,out_path,settings_file_path,macro_path,fiji_pa
 
 # detect all spots in a imaged using RS-FISH, based on a sepcified detection config for each channel    
 def detect_spots(images_path, detection_settings, channels,
+                 out_subfolder = "detections/",
                  macro_path = "/home/stumberger/fish-pipelines/fish_utils/RS_macro_param.ijm",
                  fiji_path = "/home/stumberger/tools/Fiji.app/ImageJ-linux64"):
     
     # tif path
     images_path = f"{images_path}/tif/"
-    out_path = f"{images_path.rsplit('/', 2)[0]}/detections/"
+    out_path = f"{images_path.rsplit('/', 2)[0]}/{out_subfolder}"
     
     create_folder(out_path)
     
