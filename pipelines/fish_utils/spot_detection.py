@@ -50,7 +50,8 @@ def make_fiji_command(images_path,out_path,settings_file_path,macro_path,fiji_pa
         f"{macro_path} \""
         f"{images_path},"
         f"{out_path},"
-        f"{images_path.rsplit('/', 2)[0]}/detections/statsDetectionTime.txt,"
+#        f"{images_path.rsplit('/', 2)[0]}/detections/statsDetectionTime.txt,"
+        f"{out_path}/statsDetectionTime.txt,"
         f"{parameters['anisotropyCoefficient']},"
         f"{parameters['RANSAC']},"
         f"{parameters['min intensity']},"
@@ -78,7 +79,7 @@ def detect_spots(images_path, detection_settings, channels,
     
     # tif path
     images_path = f"{images_path}/tif/"
-    out_path = f"{images_path.rsplit('/', 2)[0]}/{out_subfolder}"
+    out_path = f"{images_path.rsplit('/', 2)[0]}/{out_subfolder}/"
     
     create_folder(out_path)
     
@@ -99,7 +100,7 @@ def plot_detections(path,channel, path_spots=None, out_folder=None, range_quanti
     # either the path to the upper folder containing the "detections" folder with merge.csv or the direct path to the merge.csv
     try:
         if path_spots is None:
-            spots = pd.read_csv(f"{path}/detections/merge.csv")
+            spots = pd.read_csv(f"{path}/{out_folder}/merge.csv")
         else:
             spots = pd.read_csv(path_spots)
     except FileNotFoundError:
@@ -143,15 +144,15 @@ def plot_detections(path,channel, path_spots=None, out_folder=None, range_quanti
             axes[1].add_patch(c)
             
         # save image
-        fig.savefig(f"{out}{os.path.basename(img)}.png",dpi=300)
+        fig.savefig(f"{out}/{os.path.basename(img)}.png",dpi=300)
         
         plt.close(fig)
         
 
 # combines all spot csvs from all images
-def combine_csv(path):
+def combine_csv(path,out_subpath):
 
-    folder_path = f"{path}/detections/"
+    folder_path = f"{path}/{out_subpath}/"
     files = glob(f"{folder_path}*.csv")
     files = natsorted(files)
 
@@ -194,9 +195,9 @@ def combine_csv(path):
         
         
 # add acquisition info to spots
-def add_sample_info(path,info=None):
+def add_sample_info(path,out_subfolder="detections",info=None):
     
-    spots = pd.read_csv(f"{path}/detections/merge.csv")
+    spots = pd.read_csv(f"{path}/{out_subfolder}/merge.csv")
     
     # get metadata
     if info == None:
@@ -223,4 +224,4 @@ def add_sample_info(path,info=None):
     # combine metadata with spots
     df = spots.merge(metadata, right_on="acquisition.channels", left_on="channel", how='left')
     
-    df.to_csv(f"{path}/detections/merge.csv", index=False)
+    df.to_csv(f"{path}/{out_subfolder}/merge.csv", index=False)
