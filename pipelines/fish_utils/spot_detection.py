@@ -73,13 +73,14 @@ def make_fiji_command(images_path,out_path,settings_file_path,macro_path,fiji_pa
 
 # detect all spots in a imaged using RS-FISH, based on a sepcified detection config for each channel    
 def detect_spots(images_path, detection_settings, channels,
+                 tif_subfolder = "tif",
                  out_subfolder = "detections/",
                  macro_path = "/home/stumberger/fish-pipelines/fish_utils/RS_macro_param.ijm",
                  fiji_path = "/home/stumberger/tools/Fiji.app/ImageJ-linux64"):
     
     # tif path
-    images_path = f"{images_path}/tif/"
-    out_path = f"{images_path.rsplit('/', 2)[0]}/{out_subfolder}/"
+    out_path = f"{images_path}/{out_subfolder}/"
+    images_path = f"{images_path}/{tif_subfolder}/"
     
     create_folder(out_path)
     
@@ -95,7 +96,7 @@ def detect_spots(images_path, detection_settings, channels,
         
 
 # plots the spot detection on images, to check if the detection works    
-def plot_detections(path,channel, path_spots=None, out_folder=None, range_quantiles = (0.02, 0.9999)):
+def plot_detections(path, channel, path_spots=None, tif_subfolder="tif", out_folder=None, range_quantiles = (0.02, 0.9999)):
     
     # either the path to the upper folder containing the "detections" folder with merge.csv or the direct path to the merge.csv
     try:
@@ -114,7 +115,7 @@ def plot_detections(path,channel, path_spots=None, out_folder=None, range_quanti
     create_folder(out)
     
     # get list of images
-    tifs = glob(f"{path}/tif/*.tif")
+    tifs = glob(f"{path}/{tif_subfolder}/*.tif")
     tifs = [os.path.normpath(filepath) for filepath in tifs] # remove double //
     tifs = natsorted(tifs)
     
@@ -150,7 +151,7 @@ def plot_detections(path,channel, path_spots=None, out_folder=None, range_quanti
         
 
 # combines all spot csvs from all images
-def combine_csv(path,out_subpath):
+def combine_csv(path,tif_subfolder,out_subpath):
 
     folder_path = f"{path}/{out_subpath}/"
     files = glob(f"{folder_path}*.csv")
@@ -169,7 +170,7 @@ def combine_csv(path,out_subpath):
             df = pd.read_csv(file_name)
 
             # Extract the image name from the file name
-            img = f"{path}tif/{file_name.split('_results_', 1)[1].split('_aniso', 1)[0]}"
+            img = os.path.normpath(f"{path}/{tif_subfolder}/{file_name.split('_results_', 1)[1].split('_aniso', 1)[0]}")
 
             # Extract the channel number from the file name
             channel = int(file_name.split('_ch', 1)[1].split('.tif', 1)[0])
