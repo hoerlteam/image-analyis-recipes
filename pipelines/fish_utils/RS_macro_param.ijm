@@ -103,8 +103,8 @@ function processImage(dirPath, imName) {
 
 	//print(RSparams);
 
-	run("32-bit");
 	startTime = getTime();
+    run("32-bit");
 	run("RS-FISH", RSparams);
 	exeTime = getTime() - startTime; //in miliseconds
 	
