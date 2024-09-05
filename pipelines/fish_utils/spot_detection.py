@@ -148,6 +148,107 @@ def plot_detections(path, channel, path_spots=None, tif_subfolder="tif", out_fol
         fig.savefig(f"{out}/{os.path.basename(img)}.png",dpi=300)
         
         plt.close(fig)
+
+# def plot_detections(path, channel, path_spots=None, tif_subfolder="tif", out_folder=None, range_quantiles=(0.02, 0.9999), plot_type="sidebyside"):
+#     """
+#     Plots the spot detections on images to check if the detection works.
+
+#     Parameters:
+#     - path: str, path to the upper folder containing the images and/or detections.
+#     - channel: list of int, channels to visualize.
+#     - path_spots: str, optional, path to the .csv file with spot information.
+#     - tif_subfolder: str, subfolder name containing .tif images.
+#     - out_folder: str, optional, output folder to save plots.
+#     - range_quantiles: tuple, range of quantiles for image intensity normalization.
+#     - plot_type: str, "sidebyside" or "3d", type of plot to generate.
+#     """
+    
+#     # Load spots data from CSV file
+#     try:
+#         if path_spots is None:
+#             spots = pd.read_csv(f"{path}/{out_folder}/merge.csv")
+#         else:
+#             spots = pd.read_csv(path_spots)
+#     except FileNotFoundError:
+#         raise ValueError("Please provide a valid .csv file with spot information.")
+        
+#     # Create output folder if it doesn't exist
+#     if out_folder is None:
+#         out = f"{path}/detections/vis/"
+#     else:
+#         out = out_folder
+#     create_folder(out)
+    
+#     # Get list of .tif images
+#     tifs = glob(f"{path}/{tif_subfolder}/*.tif")
+#     tifs = [os.path.normpath(filepath) for filepath in tifs]
+#     tifs = natsorted(tifs)
+    
+#     # Filter list for channels to visualize
+#     ch = ["_ch" + str(num) + "." for num in channel]
+#     tifs = [path for path in tifs if any(item in path for item in ch)]
+    
+#     # Iterate over all images in the folder
+#     for img in tifs:
+#         current_spots = spots[spots['img'] == img]  # Get all spots for current image
+        
+#         # Read and normalize the image
+#         img_data = imread(img)
+#         img_max_proj = img_data.max(axis=0)
+#         intensity_range = tuple(np.quantile(img_max_proj, range_quantiles))
+#         img_norm = rescale_intensity(img_max_proj, in_range=intensity_range, out_range='uint8').astype(np.uint8)
+        
+#         if plot_type == "sidebyside":
+#             # Create side-by-side plot
+#             fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+#             fig.suptitle(os.path.basename(img).rsplit(".", 1)[0])
+#             plt.subplots_adjust(top=1)
+#             axes[0].imshow(img_norm)
+#             axes[1].imshow(img_norm)
+
+#             for _, row in current_spots.iterrows():
+#                 x, y, intensity = row['x'], row['y'], row['intensity']
+#                 c = Circle((x, y), 7, edgecolor='r', facecolor='None')
+#                 axes[1].add_patch(c)
+            
+#         elif plot_type == "3d":
+#             # Create 3D plot
+#             fig = plt.figure(figsize=(8, 8))
+#             gs = plt.GridSpec(2, 2, width_ratios=[3, 1], height_ratios=[1, 3], wspace=0.05, hspace=0.05)
+
+#             # Main xy plot
+#             ax_xy = fig.add_subplot(gs[1, 0])
+#             ax_xy.imshow(img_norm, cmap='viridis')
+#             ax_xy.scatter(current_spots['x'], current_spots['y'], s=20, c='red', marker='x')
+#             ax_xy.set_xlabel('x')
+#             ax_xy.set_ylabel('y')
+
+#             # xz plot (at the bottom)
+#             img_xz = img_data.max(axis=1)
+#             img_xz_norm = rescale_intensity(img_xz, in_range=intensity_range, out_range='uint8').astype(np.uint8)
+#             ax_xz = fig.add_subplot(gs[0, 0], sharex=ax_xy)
+#             ax_xz.imshow(img_xz_norm, cmap='viridis', aspect='auto')
+#             ax_xz.scatter(current_spots['x'], current_spots['z'], s=20, c='red', marker='x')
+#             ax_xz.set_ylabel('z')
+#             ax_xz.xaxis.set_tick_params(labelbottom=False)
+
+#             # yz plot (at the right)
+#             img_yz = img_data.max(axis=2).T
+#             img_yz_norm = rescale_intensity(img_yz, in_range=intensity_range, out_range='uint8').astype(np.uint8)
+#             ax_yz = fig.add_subplot(gs[1, 1], sharey=ax_xy)
+#             ax_yz.imshow(img_yz_norm, cmap='viridis', aspect='auto')
+#             ax_yz.scatter(current_spots['z'], current_spots['y'], s=20, c='red', marker='x')
+#             ax_yz.set_xlabel('z')
+#             ax_yz.yaxis.set_tick_params(labelleft=False)
+            
+#             plt.suptitle(os.path.basename(img).rsplit(".", 1)[0])
+
+#         else:
+#             raise ValueError("Invalid plot type. Choose either 'sidebyside' or '3d'.")
+
+#         # Save the plot
+#         fig.savefig(f"{out}/{os.path.basename(img)}.png", dpi=300)
+#         plt.close(fig)
         
 
 # combines all spot csvs from all images
