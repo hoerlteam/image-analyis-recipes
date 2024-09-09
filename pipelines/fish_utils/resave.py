@@ -8,9 +8,10 @@ from natsort import natsorted
 import tifffile
 from nd2reader import ND2Reader
 from skimage.transform import resize
+import skimage
 from nd2 import ND2File
 import h5py as h5
-from msr import OBFFile
+from msr_reader import OBFFile
 
 ############# h5 files #################
 # Split h5 files into individual files and channels, create a folder called "tif" and save them there
@@ -124,17 +125,36 @@ def resave_msr(folder,out):
                 img = f.read_stack(idx) # read stack with index idx into numpy array
 
                 # metadata
-                stack_sizes = f.sizes # list of stack sizes/shapes, including stack and dimension names
-                pixel_sizes = f.pixel_shapes # like sizes, but with pixel sizes (unit: meters)
+                stack_sizes = f.shapes # list of stack sizes/shapes, including stack and dimension names
+                pixel_sizes = f.pixel_sizes # like sizes, but with pixel sizes (unit: meters)
                 
                 # save
                 name = os.path.splitext(os.path.basename(file))[0]
-                tifffile.imsave(f"{out}/{name}_ch{idx}.tif", img) 
+                tifffile.imsave(f"{out}/{name}_ch{idx}.tif", img.astype(np.int32)) 
 
                 # TODO save metadata, like pixel sizes as well
     #            resolution=(pixel_sizes[idx].sizes['ExpControl X']*1e+6, 
     #            pixel_sizes[idx].sizes['ExpControl Y']*1e+6, 'None')) 
 
+    
+##################### tif ######################
+def split_tif(in_path, tif_path,out_path):
+    
+    tif_files_paths = glob(tif_path + "/*tif")
+    
+    # create out "tif" directory if it doesnt exist yet
+    os.makedirs(out_path, exist_ok=True)
+    
+    # read file
+    for tif_file in tif_files_paths:
+        img = skimage.io.imread(tif_file)
+        name= os.path.basename(tif_file).rsplit(".", 1)[0]
+        
+        # resave each channel
+        for ch in range(img.shape[3]):
+            tifffile.imsave(f"{out_path}/{name}_ch{ch}.tif", img[:, :, :, ch].astype(np.uint16))    
+    
+    
 ################################################
 # delete tif files after analysis is done to save space
 def remove_tifs(folder):
