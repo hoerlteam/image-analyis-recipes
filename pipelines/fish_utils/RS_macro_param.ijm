@@ -101,9 +101,10 @@ function processImage(dirPath, imName) {
 	" results_file=[" + results_csv_path + "]" + 
 	" " + useMultithread + " num_threads=" + numThreads + " block_size_x=" + blockSizX + " block_size_y=" + blockSizY + " block_size_z=" + blockSizZ;
 
-	print(RSparams);
+	//print(RSparams);
 
 	startTime = getTime();
+    run("32-bit");
 	run("RS-FISH", RSparams);
 	exeTime = getTime() - startTime; //in miliseconds
 	
