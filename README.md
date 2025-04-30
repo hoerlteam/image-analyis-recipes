@@ -12,5 +12,5 @@ pip install -r requirements.txt
 or directly:
 
 ```
-pip install git+https://github.com/CALM-LMU/CalmUtils@0.0.13
+pip install calmutils
 ```
