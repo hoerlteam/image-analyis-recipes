@@ -12,6 +12,8 @@ from skimage.exposure import rescale_intensity
 from glob import glob
 from natsort import natsorted
 import json
+from scipy.optimize import curve_fit
+
 
 # creates the outout folder if it doesn't yet exist
 def create_folder(folder_path):
@@ -327,3 +329,82 @@ def add_sample_info(path,out_subfolder="detections",info=None):
     df = spots.merge(metadata, right_on="acquisition.channels", left_on="channel", how='left')
     
     df.to_csv(f"{path}/{out_subfolder}/merge.csv", index=False)
+
+# refine subpixel localization
+def gaussian_3d(coords, x0, y0, z0, sigma_x, sigma_y, sigma_z, A, B):
+    x, y, z = coords
+    return (A * np.exp(
+        -(((x - x0)**2) / (2 * sigma_x**2)
+        + ((y - y0)**2) / (2 * sigma_y**2)
+        + ((z - z0)**2) / (2 * sigma_z**2))
+    ) + B).ravel()
+
+def refine_subpixel(in_path, in_file,out_path,roi_radius = 5):
+    # --- Load data ---
+    spots_df_all = pd.read_csv(f'{in_path}/{in_file}')  # Columns: x, y, z
+    
+    refined_coords = []
+    
+    for img_path in spots_df_all['img'].unique():
+    
+        # Read image
+        image = imread(img_path)
+    
+        # Subset df
+        spots_df = spots_df_all[spots_df_all['img'] == img_path]
+    
+        # --- Loop through spots ---
+        for idx, row in spots_df.iterrows():
+            
+            x0, y0, z0 = row['x'], row['y'], row['z']
+            x0i, y0i, z0i = int(round(x0)), int(round(y0)), int(round(z0))
+        
+            # Crop ROI
+            zmin, zmax = z0i - roi_radius, z0i + roi_radius + 1
+            ymin, ymax = y0i - roi_radius, y0i + roi_radius + 1
+            xmin, xmax = x0i - roi_radius, x0i + roi_radius + 1
+        
+            if (zmin < 0 or ymin < 0 or xmin < 0 or 
+                zmax > image.shape[0] or ymax > image.shape[1] or xmax > image.shape[2]):
+                continue  # Skip boundary cases
+        
+            roi = image[zmin:zmax, ymin:ymax, xmin:xmax]
+        
+            # Generate coordinate grid
+            z_range, y_range, x_range = np.mgrid[
+                zmin:zmax,
+                ymin:ymax,
+                xmin:xmax
+            ]
+            
+            # Flatten for curve fitting
+            coords = (x_range, y_range, z_range)
+            roi_flat = roi.ravel()
+        
+            # Initial guess
+            guess = (x0, y0, z0, 1.0, 1.0, 1.5, np.max(roi), np.min(roi))
+        
+            try:
+                # gaussian fit
+                popt, _ = curve_fit(gaussian_3d, coords, roi_flat, p0=guess)
+                
+                # Copy full original row and update it
+                refined_row = row.copy()
+                refined_row['x'] = popt[0]
+                refined_row['y'] = popt[1]
+                refined_row['z'] = popt[2]
+                refined_row['sigma_x'] = popt[3]
+                refined_row['sigma_y'] = popt[4]
+                refined_row['sigma_z'] = popt[5]
+                refined_row['amplitude'] = popt[6]
+                refined_row['background'] = popt[7]
+    
+                refined_coords.append(refined_row)
+                
+            except RuntimeError:
+                continue  # Fit failed
+    
+    
+    # add new spots to dataframe
+    refined_df = pd.DataFrame(refined_coords)
+    refined_df.to_csv(f"{in_path}/{out_path}", index=False)
