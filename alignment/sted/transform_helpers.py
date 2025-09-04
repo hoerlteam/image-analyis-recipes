@@ -108,8 +108,9 @@ def get_scan_field_metadata(msr_path, stack_idx=0):
 
 def get_scan_field_metadata_h5(h5_file, acquisition_path, configuration_idx=0):
 
-    # open h5 file, get attributes (measurement / hardware metadata) for given acquisition
-    with File(h5_file) as fd:
+    # if file is already open, don't open a second time
+    if isinstance(h5_file, File):
+        fd = h5_file
         measurement_metadata = json.loads(
             fd[f"experiment/{acquisition_path}/{configuration_idx}"].attrs[
                 "measurement_meta"
@@ -120,6 +121,21 @@ def get_scan_field_metadata_h5(h5_file, acquisition_path, configuration_idx=0):
                 "global_meta"
             ]
         )
+
+    # h5_file is not a h5py.File, assume it is a path and open
+    else:
+        # open h5 file, get attributes (measurement / hardware metadata) for given acquisition
+        with File(h5_file) as fd:
+            measurement_metadata = json.loads(
+                fd[f"experiment/{acquisition_path}/{configuration_idx}"].attrs[
+                    "measurement_meta"
+                ]
+            )
+            hardware_metadata = json.loads(
+                fd[f"experiment/{acquisition_path}/{configuration_idx}"].attrs[
+                    "global_meta"
+                ]
+            )
 
     # get scan range subdirectory
     attrs_scan = recursive_dict_query(measurement_metadata, "ExpControl/scan/range")
