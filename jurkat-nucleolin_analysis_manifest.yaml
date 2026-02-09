@@ -6,6 +6,7 @@ acquisition_info_queries:
 
 defaults:
     distances_path: spot-mask-distances-nested
+    regionprops_path: nested_regionprops
 
 samples:
     - in_path: /Volumes/nn/Julia Vogtmann/Microscopy/25AM11-01_3
