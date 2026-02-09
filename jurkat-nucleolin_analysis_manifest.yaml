@@ -1,0 +1,25 @@
+acquisition_info_queries:
+    - experiment/experiment_number
+    - experiment/cell_type
+    - experiment/condition
+    - preparation/targets[2]
+
+defaults:
+    distances_path: spot-mask-distances-nested
+
+samples:
+    - in_path: /Volumes/nn/Julia Vogtmann/Microscopy/25AM11-01_3
+    - in_path: /Volumes/nn/Julia Vogtmann/Microscopy/25AM11-01_5
+    - in_path: /Volumes/nn/Julia Vogtmann/Microscopy/25AM11-03_4
+    - in_path: /Volumes/nn/Julia Vogtmann/Microscopy/25AM11-03_6
+    - in_path: /Volumes/nn/Julia Vogtmann/Microscopy/25AM11-04_4
+    - in_path: /Volumes/nn/Julia Vogtmann/Microscopy/25AM12-02_1
+    - in_path: /Volumes/nn/Julia Vogtmann/Microscopy/25AM12-02_3
+    - in_path: /Volumes/nn/Julia Vogtmann/Microscopy/25JV_006
+    - in_path: /Volumes/nn/Julia Vogtmann/Microscopy/25JV_008
+    - in_path: /Volumes/nn/Julia Vogtmann/Microscopy/26AM01-01_2
+    - in_path: /Volumes/nn/Julia Vogtmann/Microscopy/26AM01-01_4
+    - in_path: /Volumes/nn/Julia Vogtmann/Microscopy/26JV_018
+    - in_path: /Volumes/nn/Julia Vogtmann/Microscopy/26JV_020
+    - in_path: /Volumes/nn/Julia Vogtmann/Microscopy/26JV_022
+    - in_path: /Volumes/nn/Julia Vogtmann/Microscopy/26JV_024
