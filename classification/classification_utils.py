@@ -8,6 +8,7 @@ def get_class_mapping():
     }
 
 def get_class_colors():
+    # TODO: make more general!
     return {
         'EarlyS': (255, 0, 0),
         'G1G2': (0, 255, 0),
@@ -16,14 +17,9 @@ def get_class_colors():
         'ambiguous': (255, 255, 255)
     }
 
-def create_result_table():
+def create_result_table(classes):
     return {
         "cell_id": [],
-        "prob_early": [],
-        "prob_g1g2": [],
-        "prob_late": [],
-        "prob_mid": [],
-        "prob_ambiguous": [],
         "max_class": [],
         "max_class_name": []
-    }
+    } | {f'prob_{cls}': []  for cls in classes}
