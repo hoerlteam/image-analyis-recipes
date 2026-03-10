@@ -21,5 +21,7 @@ def create_result_table(classes):
     return {
         "cell_id": [],
         "max_class": [],
-        "max_class_name": []
+        "max_class_name": [],
+        "img_file": [],
+        "mask_file": [],
     } | {f'prob_{cls}': []  for cls in classes}
