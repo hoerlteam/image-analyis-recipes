@@ -7,6 +7,14 @@ from msr_reader import OBFFile
 
 from calmutils.misc.visualization import get_orthogonal_projections_8bit
 
+
+def normalize_intensity_to_8bit(img, intensity_range='auto', auto_range_quantiles=(0.02, 0.999)):
+    """Simple quantile-based normalization, mimics behaviour of get_orthogonal_projections_8bit"""
+    if intensity_range == 'auto':
+        intensity_range = tuple(np.quantile(img, auto_range_quantiles))
+    return rescale_intensity(img, in_range=intensity_range, out_range='uint8').astype(np.uint8)
+
+
 def load_multichannel_nd2(file_path):
     with ND2File(file_path) as reader:
         # nice OC name without whitespace
