@@ -1,16 +1,23 @@
 from nd2 import ND2File
 from pathlib import Path
+import warnings
 from tifffile import imwrite
 from calmutils.imageio.tiff_imagej import save_tiff_imagej
 
+
+SUPPORTED_PROEJCTIONS = ["max", "sum", "min", "mean"]
+
+
 def resave_nd2_flexible(
     in_path,
-    file_pattern="*.nd2",
+    file_pattern="[!.]*.nd2",
     out_path=None,
     split_dimensions=("C", "T", "P"),
     prefixes={"C": "_ch", "T": "_tp", "P": "_pos", "Z": "_z", "X": "_x", "Y": "_y"},
     use_indices=True,
-    min_index_len=1
+    min_index_len=1,
+    projection=None,
+    projection_dimension="Z",
 ):
     # by default, save in "tif" subfolder
     if out_path is None:
@@ -29,8 +36,35 @@ def resave_nd2_flexible(
             split_dimensions,
             prefixes,
             use_indices,
-            min_index_len
+            min_index_len,
+            projection,
+            projection_dimension
         )
+
+
+def handle_projection_xarray(img, projection, projection_dimension):
+
+    # nothing to do
+    if projection is None:
+        return img
+    
+    # catch projection along nonexistent dimension -> warn and return original
+    if projection is not None and projection_dimension not in img.dims:
+        warnings.warn(f"Projection along dimension {projection_dimension}")
+        return img
+
+    # apply projection along projection axis
+    if projection is not None:
+        if projection == "max":
+            return img.max(projection_dimension)
+        elif projection == "min":
+            return img.min(projection_dimension)
+        elif projection == "sum":
+            return img.sum(projection_dimension)
+        elif projection == "mean":
+            return img.mean(projection_dimension)
+        else:
+            raise RuntimeError(f"Unsupported projection type '{projection}'. Supported projection types: {SUPPORTED_PROEJCTIONS}.")
 
 
 def resave_nd2_flexible_single(
@@ -39,13 +73,17 @@ def resave_nd2_flexible_single(
     split_dimensions=("C", "T", "P"),
     prefixes={"C": "_ch", "T": "_tp", "P": "_pos", "Z": "_z", "X": "_x", "Y": "_y"},
     use_indices=True,
-    min_index_len=1
+    min_index_len=1,
+    projection=None,
+    projection_dimension="Z",
 ):
 
     # read file to XArray
     with ND2File(in_file) as reader:
         img = reader.to_xarray()
         pixel_size = list(reader.voxel_size())[::-1]
+
+    img = handle_projection_xarray(img, projection, projection_dimension)
 
     # find which of the selected split dimensions are present
     present_split_dimensions = [d for d in split_dimensions if d in img.dims]
