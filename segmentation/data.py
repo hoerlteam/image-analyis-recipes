@@ -1,9 +1,15 @@
 from enum import StrEnum, auto
+import os
+from glob import glob
+from functools import partial
+from natsort import natsorted
 
 import numpy as np
 import torch
 from torchvision.tv_tensors import Image, Mask
+from torchvision.transforms import v2
 from tifffile import imread
+from sklearn.model_selection import train_test_split
 
 from segmentation_utils import scale_intensities
 
@@ -179,3 +185,51 @@ class ZeroChannelDropout(torch.nn.Module):
 
         img[~selection] = 0
         return img, *rest
+
+
+def load_dataset(dataset_paths, dataset_options):
+
+    # assemble image and label files lists from one or more dataset_paths
+    img_files = []
+    label_files = []
+    for dataset_path in dataset_paths:
+        img_files_i = natsorted(glob(os.path.join(dataset_path['base_path'], dataset_path['image_subfolder'], dataset_path['image_file_pattern'])))
+        label_files_i = natsorted(glob(os.path.join(dataset_path['base_path'], dataset_path['label_subfolder'], dataset_path['label_file_pattern'])))
+        img_files.extend(img_files_i)
+        label_files.extend(label_files_i)
+
+    # do train/val split
+    img_files_train, img_files_val, label_files_train, label_files_val = train_test_split(
+        img_files,
+        label_files,
+        test_size=dataset_options['val_fraction'],
+        random_state=42) # TODO: random state settable?
+
+    # random resize crop (should work even for smaller img) and flips
+    tr = v2.Compose(
+        [
+            v2.RandomResizedCrop((128,128), scale=(0.9, 1.0)), # TODO: configurable!
+            v2.RandomHorizontalFlip(),
+            v2.RandomVerticalFlip(),
+            ZeroChannelDropout(keep_idx=dataset_options['plane_sliding_window']//2, keep_p=1-dataset_options['zero_channel_dropout_prob'])
+        ]
+    )
+    
+    # plane selector funtions
+    # NOTE: we first select labelled planes, than the middle of those
+    selectors = [
+        partial(get_labeled_planes_selection, min_labeled_pixels=dataset_options['planeselect_min_labeled_pixels']),
+        partial(get_mid_planes_selection, q=dataset_options['planeselect_center_planes_fraction']),
+    ]
+
+    # build datasets (train and val)
+    dataset_train = SparseLabeledImageDataset(img_files_train, label_files_train, transforms=tr,
+                                        plane_selectors=selectors,
+                                        normalization_strategy=dataset_options['normalization_strategy'],
+                                        plane_sliding_window=dataset_options['plane_sliding_window'])
+
+    dataset_val = SparseLabeledImageDataset(img_files_val, label_files_val, transforms=tr,
+                                        plane_selectors=selectors,
+                                        normalization_strategy=dataset_options['normalization_strategy'],
+                                        plane_sliding_window=dataset_options['plane_sliding_window'])
+    return dataset_train, dataset_val

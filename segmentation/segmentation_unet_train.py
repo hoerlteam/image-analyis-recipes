@@ -1,19 +1,16 @@
+import json
+from math import ceil
 
-from lightning import pytorch as L
 import torch
 from torch.nn.functional import cross_entropy, binary_cross_entropy_with_logits
 from torchvision.ops import sigmoid_focal_loss
+from torch.utils.data import DataLoader
+from lightning import pytorch as L
+from lightning.pytorch.callbacks import ModelCheckpoint
+from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 
+from data import load_dataset
 from unet import LightningUNet
-
-import os
-from glob import glob
-from functools import partial
-from natsort import natsorted
-
-from torchvision.transforms import v2
-
-from data import SparseLabeledImageDataset, NormalizationStrategy, ZeroChannelDropout
 
 
 def get_masked_loss_input(logits_pred, y_gt):
@@ -43,6 +40,12 @@ class SparseSegmentationUNet(LightningUNet):
     """
 
     def training_step(self, batch, batch_idx):
+        return self._train_val_step(batch, 'loss_train')
+
+    def validation_step(self, batch, batch_idx):
+        return self._train_val_step(batch, 'loss_val')
+
+    def _train_val_step(self, batch, log_prefix):
         
         # apply net
         x, y = batch
@@ -52,7 +55,8 @@ class SparseSegmentationUNet(LightningUNet):
         logits_selected, y_selected = get_masked_loss_input(yp, y)
         loss = cross_entropy(logits_selected, y_selected)
 
-        self.log('train_loss', loss, prog_bar=True)
+        self.log(log_prefix, loss, prog_bar=True)
+
         return loss
 
     def configure_optimizers(self):
@@ -93,67 +97,43 @@ class DenseSegmentationUNet(LightningUNet):
         return torch.optim.Adam(self.parameters(), lr=0.001)
 
 
-if __name__ == '__main__':
+def run_unet_training(dataset_train, dataset_val, dataset_options, network_options):
 
-    from math import ceil
-    from torch.utils.data import DataLoader
+    # early stop if loss does not decrease for some epochs
+    early_stop_callback = EarlyStopping(monitor='loss_val', patience=network_options['early_stop_patience'])
 
-    dataset_paths = [
-        {
-            'base_path': '/data/agl_data/AndreasMaiser/NSD/26AM06-02_1',
-            'image_subfolder': 'patches_gfp+',
-            'label_subfolder': 'patches-segmentation-threshold',
-            'image_file_pattern': "*_ch0*.tif",
-            'label_file_pattern': "*.tif"
-        },
-        {
-            'base_path': '/data/agl_data/AndreasMaiser/NSD/26AM06-02_2',
-            'image_subfolder': 'patches_gfp+',
-            'label_subfolder': 'patches-segmentation-threshold',
-            'image_file_pattern': "*_ch1*.tif",
-            'label_file_pattern': "*.tif"
-        }
-    ]
+    # save latest model and best "val" loss
+    last_model_checkpoint = ModelCheckpoint()
+    best_model_checkpoint = ModelCheckpoint(monitor='loss_val', filename='best-{epoch:02d}-{loss_val:.2f}')
 
-    # assemble image and label files lists from one or more dataset_paths
-    img_files = []
-    label_files = []
-    for dataset_path in dataset_paths:
-        img_files_i = natsorted(glob(os.path.join(dataset_path['base_path'], dataset_path['image_subfolder'], dataset_path['image_file_pattern'])))
-        label_files_i = natsorted(glob(os.path.join(dataset_path['base_path'], dataset_path['label_subfolder'], dataset_path['label_file_pattern'])))
-        img_files.extend(img_files_i)
-        label_files.extend(label_files_i)
+    # use either dense or sparse segmentation class (difference is in loss function)
+    net_class = SparseSegmentationUNet if dataset_options['sparse_labeling'] else DenseSegmentationUNet
 
-    # random resize crop (should work even for smaller img) and flips
-    tr = v2.Compose(
-        [
-            v2.RandomResizedCrop((128,128), scale=(0.9, 1.0)),
-            v2.RandomHorizontalFlip(),
-            v2.RandomVerticalFlip(),
-            ZeroChannelDropout(keep_idx=2)
-        ]
-    )
+    net = net_class(dataset_options['n_classes'], network_options['unet_intermediate_channels'], dataset_options['plane_sliding_window'])
 
-    # plane selector funtions
-    # NOTE: we first select labelled planes, than the middle of those
-    selectors = [
-        # partial(get_labeled_planes_selection, min_labeled_pixels=20),
-        # partial(get_mid_planes_selection, q=0.5),
-    ]
-
-    dataset_train = SparseLabeledImageDataset(img_files, label_files, transforms=tr,
-                                        plane_selectors=selectors,
-                                        normalization_strategy=NormalizationStrategy.PER_IMAGE,
-                                        plane_sliding_window=5)
-    dataset_val = None
-
-    net = DenseSegmentationUNet(1, [64, 128, 128], input_channels=5)
-    loader = DataLoader(dataset_train, batch_size=64, shuffle=True)
+    train_loader = DataLoader(dataset_train, batch_size=64, shuffle=True)
+    val_loader = DataLoader(dataset_val, batch_size=64, shuffle=False)
 
     trainer = L.Trainer(
         logger=L.loggers.CSVLogger(""),
-        log_every_n_steps=ceil(len(dataset_train) / loader.batch_size),
-        max_epochs=300,
+        callbacks=[last_model_checkpoint, best_model_checkpoint, early_stop_callback],    
+        log_every_n_steps=ceil(len(dataset_train) / train_loader.batch_size),
     )
 
-    trainer.fit(net, loader)
+    trainer.fit(net, train_loader, val_loader)
+
+
+
+if __name__ == '__main__':
+
+    with open('nucleolin_unet_config.json') as fd:
+        config = json.load(fd)
+
+    dataset_paths = config['dataset_paths']
+    dataset_options = config['dataset_options']
+    network_options = config['network_options']
+
+    dataset_train, dataset_val = load_dataset(dataset_paths, dataset_options)
+
+    run_unet_training(dataset_train, dataset_val, dataset_options, network_options)
+    
