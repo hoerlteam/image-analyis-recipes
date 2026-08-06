@@ -130,7 +130,7 @@ class LightningUNet(L.LightningModule):
     Only inference is implemented, for training, this should be subclassed.
     """
 
-    def __init__(self, n_classes, intermediate_channels, input_channels=1, **unet_kwargs):
+    def __init__(self, n_classes, intermediate_channels, input_channels=1, unet_kwargs={}, **kwargs):
         
         super().__init__()
 

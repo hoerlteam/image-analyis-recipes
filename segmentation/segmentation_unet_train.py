@@ -39,6 +39,13 @@ class SparseSegmentationUNet(LightningUNet):
     Training subclass of ligthning UNet for sparse labels
     """
 
+    def __init__(self, *args, class_weights=None, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.class_weights = class_weights
+        if self.class_weights is not None:
+            self.class_weights = torch.tensor(self.class_weights)            
+
     def training_step(self, batch, batch_idx):
         return self._train_val_step(batch, 'loss_train')
 
@@ -53,7 +60,7 @@ class SparseSegmentationUNet(LightningUNet):
 
         # select pixels labeled in GT, calculate CE for those
         logits_selected, y_selected = get_masked_loss_input(yp, y)
-        loss = cross_entropy(logits_selected, y_selected)
+        loss = cross_entropy(logits_selected, y_selected, weight=self.class_weights.to(yp))
 
         self.log(log_prefix, loss, prog_bar=True)
 
@@ -109,15 +116,17 @@ def run_unet_training(dataset_train, dataset_val, dataset_options, network_optio
     # use either dense or sparse segmentation class (difference is in loss function)
     net_class = SparseSegmentationUNet if dataset_options['sparse_labeling'] else DenseSegmentationUNet
 
-    net = net_class(dataset_options['n_classes'], network_options['unet_intermediate_channels'], dataset_options['plane_sliding_window'])
+    net = net_class(dataset_options['n_classes'], network_options['unet_intermediate_channels'], dataset_options['plane_sliding_window'], class_weights=network_options['class_weights'])
 
-    train_loader = DataLoader(dataset_train, batch_size=64, shuffle=True)
-    val_loader = DataLoader(dataset_val, batch_size=64, shuffle=False)
+    train_loader = DataLoader(dataset_train, batch_size=8, shuffle=True)
+    val_loader = DataLoader(dataset_val, batch_size=8, shuffle=False) if dataset_val is not None else None
 
+    callbacks = [last_model_checkpoint, best_model_checkpoint, early_stop_callback] if dataset_val is not None else [last_model_checkpoint]
+    
     trainer = L.Trainer(
         logger=L.loggers.CSVLogger(""),
-        callbacks=[last_model_checkpoint, best_model_checkpoint, early_stop_callback],    
-        log_every_n_steps=ceil(len(dataset_train) / train_loader.batch_size),
+        callbacks=callbacks,    
+        log_every_n_steps=20,
     )
 
     trainer.fit(net, train_loader, val_loader)

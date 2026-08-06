@@ -2,16 +2,16 @@ from enum import StrEnum, auto
 import os
 from glob import glob
 from functools import partial
-from natsort import natsorted
 
+from natsort import natsorted
 import numpy as np
 import torch
-from torchvision.tv_tensors import Image, Mask
-from torchvision.transforms import v2
 from tifffile import imread
 from sklearn.model_selection import train_test_split
 
 from segmentation_utils import scale_intensities
+
+import albumentations as A
 
 
 class NormalizationStrategy(StrEnum):
@@ -47,10 +47,15 @@ class SparseLabeledImageDataset(torch.utils.data.Dataset):
             conversion to tensor is done already
         plane_selectors: list/iterable of callables
             callables that return a selection along the first dimension when applied to a 3D mask
+        # TODO: comment others
         """
 
         self.images = []
         self.masks = []
+        
+        # if no transforms are given, at least add conversion numpy -> torch
+        if transforms is None:
+            transforms = A.ToTensorV2()
         self.transforms = transforms
 
         for img_file, mask_file in zip(img_files, mask_files):
@@ -67,10 +72,11 @@ class SparseLabeledImageDataset(torch.utils.data.Dataset):
             # NOTE: do it before conversion to torch as torch.quantile seems to struggle with large arrays
             img = SparseLabeledImageDataset._normalize_intensities(img, normalization_strategy, normalization_quantiles)
 
+            # add a dummy channel dimension consisting of sliding windows along z (first dim)
             if plane_sliding_window > 1:
                 img = sliding_window_planewise_padded(img, plane_sliding_window)
 
-            # apply plane selectors
+            # apply plane (first dim) selectors
             # those should be callables that return a selection when applied to the mask
             img_selected, mask_selected = img, mask
             if plane_selectors is not None:
@@ -78,13 +84,14 @@ class SparseLabeledImageDataset(torch.utils.data.Dataset):
                     selection = selector(mask_selected)
                     img_selected, mask_selected = img_selected[selection], mask_selected[selection]
 
-            # to torch tensors with standard datatypes
-            self.images.extend(torch.from_numpy(img_selected).float())
-            self.masks.extend(torch.from_numpy(mask_selected).long())
+            
+            self.images.extend(img_selected)
+            self.masks.extend(mask_selected)
 
         # convert to torchvision TVTensors (so augmentations can be easily applied to both img and mask)
-        self.images = [Image(img) for img in self.images]
-        self.masks = [Mask(mask) for mask in self.masks]
+        # NOTE: revomed because we now use albumentations
+        # self.images = [Image(img) for img in self.images]
+        # self.masks = [Mask(mask) for mask in self.masks]
 
     @staticmethod
     def _normalize_intensities(img, normalization_strategy=None, normalization_quantiles= (0.0, 1.0)):
@@ -109,13 +116,15 @@ class SparseLabeledImageDataset(torch.utils.data.Dataset):
 
         img, mask = self.images[idx], self.masks[idx]
 
+        # apply transforms (NOTE: None-check should not be necessary)
         if self.transforms is not None:
-            img, mask = self.transforms(img, mask)
+            result = self.transforms(image=img, mask=mask)
+            img, mask = result['image'], result['mask']
 
-        return img, mask
+        # results are torch-tensors -> convert to common datatypes
+        return img.float(), mask.long()
 
     def __len__(self):
-
         return len(self.images)
 
 
@@ -123,6 +132,8 @@ def get_mid_planes_selection(mask, q=0.5):
     """
     Returns a list of interger indices with which the central fraction of planes can be selected.
     """
+
+    # TODO: other axes?
     
     n_planes = mask.shape[0]
     start = int( (0.5 - q/2) * n_planes )
@@ -153,18 +164,22 @@ def get_labeled_planes_selection(mask, min_labeled_pixels=1):
 
 def sliding_window_planewise_padded(img, window_size=3, return_copy=True):
     """
-    
-    (will take form of channels in Conv.Layer input)
+    Create an array of sliding windows along axis 0 of img.
+    Windows will form a new dimnsion at the end.
     """    
     padding = ((window_size//2, (window_size-1)//2), ) + ((0,0),) * (img.ndim - 1)
     res = np.pad(img, padding)
     res = np.lib.stride_tricks.sliding_window_view(res, window_size, 0)
-    res = res.transpose((0, img.ndim) + tuple(range(1, img.ndim)))
+    
+    # NOTE: transpose to have new dimension at index 1 (no longer needed as we use albumentations for transforms now)
+    # res = res.transpose((0, img.ndim) + tuple(range(1, img.ndim)))
     
     return res.copy() if return_copy else res
 
 
 class ZeroChannelDropout(torch.nn.Module):
+    
+    # TODO: make albumentations compatible (they have this, but without a channel that always survives)
     def __init__(self, keep_p=0.5, keep_idx=None):
         """
         Augmentation module that randomly zeros channels in the input.
@@ -198,38 +213,43 @@ def load_dataset(dataset_paths, dataset_options):
         img_files.extend(img_files_i)
         label_files.extend(label_files_i)
 
-    # do train/val split
-    img_files_train, img_files_val, label_files_train, label_files_val = train_test_split(
-        img_files,
-        label_files,
-        test_size=dataset_options['val_fraction'],
-        random_state=42) # TODO: random state settable?
+    # load serialized albumentationsx augmentation pipeline
+    # TODO: custom channel dropout
+    # TODO: separate train / val augmentations
+    tr = A.from_dict(dataset_options['augmentation'])
 
-    # random resize crop (should work even for smaller img) and flips
-    tr = v2.Compose(
-        [
-            v2.RandomResizedCrop((128,128), scale=(0.9, 1.0)), # TODO: configurable!
-            v2.RandomHorizontalFlip(),
-            v2.RandomVerticalFlip(),
-            ZeroChannelDropout(keep_idx=dataset_options['plane_sliding_window']//2, keep_p=1-dataset_options['zero_channel_dropout_prob'])
-        ]
-    )
-    
     # plane selector funtions
-    # NOTE: we first select labelled planes, than the middle of those
+    # NOTE: we first select labelled planes, then the middle of those
     selectors = [
         partial(get_labeled_planes_selection, min_labeled_pixels=dataset_options['planeselect_min_labeled_pixels']),
         partial(get_mid_planes_selection, q=dataset_options['planeselect_center_planes_fraction']),
     ]
+    
+    # do train/val split (if val_fraction > 0)
+    # TODO: more flexible splitting (more than 2)?
+    if dataset_options['val_fraction'] > 0:        
+        img_files_train, img_files_val, label_files_train, label_files_val = train_test_split(
+            img_files,
+            label_files,
+            test_size=dataset_options['val_fraction'],
+            random_state=42) # TODO: random state settable?
 
-    # build datasets (train and val)
-    dataset_train = SparseLabeledImageDataset(img_files_train, label_files_train, transforms=tr,
-                                        plane_selectors=selectors,
-                                        normalization_strategy=dataset_options['normalization_strategy'],
-                                        plane_sliding_window=dataset_options['plane_sliding_window'])
+        # build datasets (train and val)
+        dataset_train = SparseLabeledImageDataset(img_files_train, label_files_train, transforms=tr,
+                                            plane_selectors=selectors,
+                                            normalization_strategy=dataset_options['normalization_strategy'],
+                                            plane_sliding_window=dataset_options['plane_sliding_window'])
+    
+        dataset_val = SparseLabeledImageDataset(img_files_val, label_files_val, transforms=tr,
+                                            plane_selectors=selectors,
+                                            normalization_strategy=dataset_options['normalization_strategy'],
+                                            plane_sliding_window=dataset_options['plane_sliding_window'])
+        return dataset_train, dataset_val
 
-    dataset_val = SparseLabeledImageDataset(img_files_val, label_files_val, transforms=tr,
-                                        plane_selectors=selectors,
-                                        normalization_strategy=dataset_options['normalization_strategy'],
-                                        plane_sliding_window=dataset_options['plane_sliding_window'])
-    return dataset_train, dataset_val
+    # only one (train) dataset
+    else:
+        dataset_train = SparseLabeledImageDataset(img_files, label_files, transforms=tr,
+                                            plane_selectors=selectors,
+                                            normalization_strategy=dataset_options['normalization_strategy'],
+                                            plane_sliding_window=dataset_options['plane_sliding_window'])
+        return dataset_train, None
