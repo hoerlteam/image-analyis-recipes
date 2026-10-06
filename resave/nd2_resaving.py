@@ -1,8 +1,7 @@
 from nd2 import ND2File
 from pathlib import Path
 import warnings
-from tifffile import imwrite
-from calmutils.imageio.tiff_imagej import save_tiff_imagej
+from calmutils.imageio import xarray_to_tiffs
 
 
 SUPPORTED_PROEJCTIONS = ["max", "sum", "min", "mean"]
@@ -85,45 +84,13 @@ def resave_nd2_flexible_single(
 
     img = handle_projection_xarray(img, projection, projection_dimension)
 
-    # find which of the selected split dimensions are present
-    present_split_dimensions = [d for d in split_dimensions if d in img.dims]
-
-    # handle no splitting
-    if len(present_split_dimensions) == 0:
-
-        # construct filename, dimension names
-        out_filename = Path(in_file).stem + '.tif'
-        out_filename = out_path / out_filename
-        axes = "".join([d for d in img.dims])
-        
-        save_tiff_imagej(
-            out_filename,
-            img.values.squeeze(),
-            axes=axes,
-            distance_unit="micron",
-            pixel_size=pixel_size
-        )
-
-        return
-
-    # group by split dimensions
-    for idx, sub_img in img.groupby(present_split_dimensions):
-
-        # treat even single split dimension as list of one
-        if len(present_split_dimensions) == 1:
-            idx = [idx]
-
-        # get integer indices if desired
-        if use_indices:
-            filename_idx = [img.get_index(d).get_loc(i) for d,i in zip(present_split_dimensions, idx)]
-            filename_idx = [str(i).rjust(min_index_len, '0') for i in filename_idx]
-        else:
-            filename_idx = idx
-
-        # construct out filename
-        out_filename = Path(in_file).stem + "".join(prefixes[d] + i for d, i in zip(present_split_dimensions, filename_idx)) + '.tif'
-        out_filename = out_path / out_filename
-
-        # save as tiff
-        axes = "".join([d for d in img.dims if d not in split_dimensions])
-        save_tiff_imagej(out_filename, sub_img.values.squeeze(), axes=axes, distance_unit="micron", pixel_size=pixel_size)
+    xarray_to_tiffs(
+        img,
+        out_path,
+        in_file.stem,
+        split_dimensions,
+        prefixes,
+        use_indices,
+        min_index_len,
+        pixel_size
+    )
