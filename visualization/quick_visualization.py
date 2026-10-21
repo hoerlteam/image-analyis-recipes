@@ -126,8 +126,8 @@ def visualize_image_xarray(
     # dimension holding the color channels for RGB composites
     # (first candidate label present in the image wins)
     if isinstance(color_dimension_label, str):
-        rgb_dimension_label = (color_dimension_label,)
-    rgb_dim = next((d for d in rgb_dimension_label if d in img_xa.dims), None)
+        color_dimension_label = (color_dimension_label,)
+    rgb_dim = next((d for d in color_dimension_label if d in img_xa.dims), None)
 
     # group by all non-channel/non-spatial dimensions
     # (channels stay together in case we want to create color composites)
