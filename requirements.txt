@@ -1,1 +1,2 @@
 CalmUtils>=0.1.3
+nbformat>=4.2  # parameter logging scripts (scripts/inject_parameter_logging.py, scripts/collect_parameters.py)
