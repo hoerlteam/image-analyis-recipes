@@ -55,3 +55,47 @@ python scripts/collect_parameters.py --include-injected measurement/   # pick up
 Non-literal values (e.g. `visualization_colors = DEFAULT_COLOR_NAMES`) are reported as their source text and flagged `unresolved` in the JSON output.
 
 `run-parameterized-nb.ipynb` sets `RECIPE_NOTEBOOK`/`RECIPE_RUNNER` (inherited by the papermill kernel) and has a "What was run?" cell that summarises the logged runs. Overridable via `RECIPE_REPO_ROOT` and `RECIPE_PARAM_OUT_DIR`. By default each run also writes `recipe_parameters.json` into the directory the recipe puts its results in (`in_path` + `out_subdirectory` &co), so the dataset keeps a copy of the parameters it was processed with (`capture(..., also_to_output_dir=False)` turns that off).
+
+## Running pipelines (`recipe_runner.py`)
+
+`scripts/run_pipeline.py` runs an ordered list of recipe notebooks (a pipeline) over a work list of datasets, via papermill. Both are defined in a YAML manifest:
+
+```yaml
+# pipeline.yaml
+steps:
+  - notebook: resave/resave_nd2_as_tiff.ipynb
+    params: {out_subfolder: tif}
+    done_if_exists: "{in_path}/{out_subfolder}"     # skip if output exists
+
+  - notebook: spot-detection/RS-FISH_spot_detection.ipynb
+    params: {channels: [0, 1], tif_subfolder: tif}
+    done_if_exists: "{in_path}/detections/merge.csv"
+
+runs:                                              # work list (inline …)
+  - {in_path: /data/.../GS550}
+  - {in_path: /data/.../GS551, channels: [1, 2]}   # per-run override
+```
+
+```
+python scripts/run_pipeline.py pipeline.yaml                  # run everything
+python scripts/run_pipeline.py pipeline.yaml --dry-run        # show what would run
+python scripts/run_pipeline.py pipeline.yaml --only-step 2    # run just step 2
+python scripts/run_pipeline.py pipeline.yaml --run-filter GS55 # only datasets whose in_path contains "GS55"
+```
+
+Parameter resolution (later wins): notebook defaults < `step.params` < run entry. `done_if_exists` is a path template formatted with the effective parameters, so it respects per-run overrides. The loop is sample-major: each dataset goes through the full pipeline before the next starts; if a step fails, the remaining steps for that dataset are skipped.
+
+The work list can also live in a separate samples file (a YAML list of run dicts), so the same pipeline can be reused with different data:
+
+```yaml
+# pipeline.yaml
+steps: …
+samples: samples_jurkat.yaml     # path relative to the pipeline file (or a list of paths)
+```
+
+```
+python scripts/run_pipeline.py pipeline.yaml --samples new_batch.yaml   # CLI override
+python scripts/run_pipeline.py pipeline.yaml --samples a.yaml --samples b.yaml   # concatenate
+```
+
+See `recipe_runner.py` for the full format documentation.
