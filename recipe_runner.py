@@ -42,8 +42,9 @@ key)::
     - in_path: /data/.../GS551
       channels: [1, 2]
 
-Runs resolution priority: CLI ``--samples`` > manifest ``samples:`` >
-inline ``runs:``.  Multiple samples files are concatenated.
+Runs resolution priority: CLI ``--in-path`` (single run) > CLI
+``--samples`` > manifest ``samples:`` > inline ``runs:``.  Multiple
+samples files are concatenated.
 
 Parameter resolution (later wins)::
 
@@ -141,16 +142,20 @@ def load_samples(path: str | Path) -> list[dict[str, Any]]:
 def load_manifest(
     path: str | Path,
     samples_paths: list[str | Path] | None = None,
+    runs_override: list[dict[str, Any]] | None = None,
 ) -> Manifest:
     """Load and validate a pipeline manifest YAML file.
 
-    Runs can come from three sources, in priority order:
+    Runs can come from four sources, in priority order:
 
-    1. ``samples_paths`` — explicit list of samples file paths (e.g. from
+    1. ``runs_override`` — an explicit list of run dicts (e.g. built from
+       the CLI ``--in-path``/``--param`` flags).  Bypasses all YAML
+       work-list sources.
+    2. ``samples_paths`` — explicit list of samples file paths (e.g. from
        the CLI ``--samples`` flag).  Multiple files are concatenated.
-    2. ``samples`` key in the manifest — a path (or list of paths) to
+    3. ``samples`` key in the manifest — a path (or list of paths) to
        samples file(s), resolved relative to the manifest file's directory.
-    3. ``runs`` key in the manifest — an inline list of run dicts.
+    4. ``runs`` key in the manifest — an inline list of run dicts.
 
     Raises ``ValueError`` with a descriptive message on structural problems.
     """
@@ -175,9 +180,11 @@ def load_manifest(
             done_if_exists=s.get("done_if_exists"),
         ))
 
-    # Resolve runs: CLI --samples > manifest 'samples:' > inline 'runs:'
+    # Resolve runs: runs_override > CLI --samples > manifest 'samples:' > inline 'runs:'
     runs: list[dict[str, Any]] = []
-    if samples_paths is not None:
+    if runs_override is not None:
+        runs = runs_override
+    elif samples_paths is not None:
         for sp in samples_paths:
             runs.extend(load_samples(sp))
     elif "samples" in data:

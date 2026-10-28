@@ -98,4 +98,13 @@ python scripts/run_pipeline.py pipeline.yaml --samples new_batch.yaml   # CLI ov
 python scripts/run_pipeline.py pipeline.yaml --samples a.yaml --samples b.yaml   # concatenate
 ```
 
+A single experiment can be processed directly, without any samples file:
+
+```
+python scripts/run_pipeline.py pipeline.yaml --in-path /data/.../GS550
+python scripts/run_pipeline.py pipeline.yaml --in-path /data/.../GS550 --param 'channels=[1, 2]'
+```
+
+`--in-path DIR` bypasses the manifest's work list (`runs:`/`samples:`/`--samples`) and processes just that one directory. `--param KEY=VALUE` (repeatable) adds run-level parameters, parsed as YAML (`1` → int, `[1, 2]` → list, `true` → bool, otherwise string). Resolution is unchanged — notebook defaults < `step.params` < run entry — so these act as per-run overrides.
+
 See `recipe_runner.py` for the full format documentation.
