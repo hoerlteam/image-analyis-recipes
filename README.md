@@ -83,7 +83,7 @@ python scripts/run_pipeline.py pipeline.yaml --only-step 2    # run just step 2
 python scripts/run_pipeline.py pipeline.yaml --run-filter GS55 # only datasets whose in_path contains "GS55"
 ```
 
-Parameter resolution (later wins): notebook defaults < `step.params` < run entry. `done_if_exists` is a path template formatted with the effective parameters, so it respects per-run overrides. The loop is sample-major: each dataset goes through the full pipeline before the next starts; if a step fails, the remaining steps for that dataset are skipped.
+Parameter resolution (later wins): notebook defaults < `step.params` < run entry. `done_if_exists` is a path template formatted with the effective parameters, so it respects per-run overrides. The loop is sample-major: each dataset goes through the full pipeline before the next starts; if a step fails, the remaining steps for that dataset are skipped. Because a run entry is merged over every step, a run-level key that matches a parameter defined in more than one step (via that step's `params` or the notebook's `parameters` cell) triggers a warning (`in_path` is exempt) — a run-level key that would replace differing per-step values (e.g. two steps with different `output_directory` params) is visible rather than silent, while an override that targets a single step stays quiet.
 
 The work list can also live in a separate samples file (a YAML list of run dicts), so the same pipeline can be reused with different data:
 

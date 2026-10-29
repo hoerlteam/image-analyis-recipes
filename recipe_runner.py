@@ -50,6 +50,11 @@ Parameter resolution (later wins)::
 
     notebook defaults  <  manifest defaults  <  step.params  <  run entry
 
+Because a run entry is merged over every step, a run-level key that matches
+a parameter defined in more than one step (via that step's ``params`` or the
+notebook's ``parameters`` cell) triggers a warning — such a key is broadcast
+and may clobber differing per-step values.  ``in_path`` is exempt.
+
 Loop order is sample-major: each run goes through the full pipeline before
 the next run starts.  If a step fails, the remaining steps for that run are
 skipped and the runner moves on to the next run (unless ``stop_on_error``).
@@ -255,6 +260,57 @@ def _full_params_for_template(
     return {**nb_defaults, **resolve_params(manifest, step, run)}
 
 
+# Run-level keys that are expected to reach every step's notebook and are
+# therefore exempt from the override warning in ``_warn_run_param_overrides``.
+_RUN_KEY_EXEMPT = {"in_path"}
+
+
+def _warn_run_param_overrides(
+    manifest: Manifest,
+    run: dict[str, Any],
+    repo_root: Path,
+) -> None:
+    """Warn when a run-level key overrides a parameter defined in more than
+    one step.
+
+    Run entries are merged over every step (see ``resolve_params``), so a
+    run-level key silently replaces per-step values.  Overriding a parameter
+    that only one step defines is a targeted override; a key defined in
+    several steps is broadcast and may clobber differing per-step values —
+    that is what gets warned about.  A parameter counts as defined in a step
+    if the step's ``params`` set it or the notebook's ``parameters`` cell
+    declares it.  ``in_path`` is exempt: it is the sanctioned run-level key
+    that every notebook declares.
+    """
+    run_keys = [k for k in run if k not in _RUN_KEY_EXEMPT]
+    if not run_keys:
+        return
+
+    # key -> [(step number, value defined for that step), ...]
+    defined_in: dict[str, list[tuple[int, Any]]] = {}
+    for step_idx, step in enumerate(manifest.steps):
+        nb_defaults: dict[str, Any] | None = None
+        for key in run_keys:
+            if key in step.params:
+                defined_in.setdefault(key, []).append((step_idx + 1, step.params[key]))
+                continue
+            if nb_defaults is None:
+                nb_path = _resolve_notebook_path(step.notebook, repo_root)
+                nb_defaults = _notebook_defaults(nb_path) if nb_path.is_file() else {}
+            if key in nb_defaults:
+                defined_in.setdefault(key, []).append((step_idx + 1, nb_defaults[key]))
+
+    for key in run_keys:
+        occurrences = defined_in.get(key, [])
+        if len(occurrences) > 1:
+            where = ", ".join(f"step {n}: {v!r}" for n, v in occurrences)
+            print(
+                f"  WARNING: run key {key!r} is defined in multiple steps"
+                f" ({where}) and is overridden to {run[key]!r}",
+                file=sys.stderr,
+            )
+
+
 # ---------------------------------------------------------------------------
 # path helpers
 # ---------------------------------------------------------------------------
@@ -391,6 +447,7 @@ def run_pipeline(
             print(f"\n{'=' * 60}")
             print(f"Run {run_idx + 1}/{len(manifest.runs)}: {label}")
             print(f"{'=' * 60}")
+        _warn_run_param_overrides(manifest, run, repo_root)
 
         for step_idx, step in enumerate(manifest.steps):
             if only_step is not None and step_idx != only_step:
