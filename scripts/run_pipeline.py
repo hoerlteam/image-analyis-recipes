@@ -11,6 +11,7 @@ Usage:
     python scripts/run_pipeline.py manifest.yaml --only-step 2
     python scripts/run_pipeline.py manifest.yaml --run-filter GS55
     python scripts/run_pipeline.py manifest.yaml --stop-on-error
+    python scripts/run_pipeline.py manifest.yaml --strict
 
 The manifest defines an ordered list of steps (notebooks + default params)
 and a work list of runs (parameter dicts).  A single run can be given
@@ -85,6 +86,13 @@ def main() -> int:
         help="Abort the entire pipeline on the first failure",
     )
     ap.add_argument(
+        "--strict",
+        action="store_true",
+        help="Treat run-level parameter warnings (multi-step overrides,"
+        " unused run keys) as errors: the affected run is skipped and"
+        " counted as failed",
+    )
+    ap.add_argument(
         "--quiet",
         "-q",
         action="store_true",
@@ -120,6 +128,7 @@ def main() -> int:
         only_step=(args.only_step - 1) if args.only_step is not None else None,
         run_filter=args.run_filter,
         stop_on_error=args.stop_on_error,
+        strict=args.strict,
         verbose=not args.quiet,
     )
 

@@ -50,10 +50,14 @@ Parameter resolution (later wins)::
 
     notebook defaults  <  manifest defaults  <  step.params  <  run entry
 
-Because a run entry is merged over every step, a run-level key that matches
-a parameter defined in more than one step (via that step's ``params`` or the
-notebook's ``parameters`` cell) triggers a warning — such a key is broadcast
-and may clobber differing per-step values.  ``in_path`` is exempt.
+Because a run entry is merged over every step, two run-level parameter
+problems trigger a warning: a key that matches a parameter defined in more
+than one step (via that step's ``params`` or the notebook's ``parameters``
+cell) — such a key is broadcast and may clobber differing per-step values —
+and a key that no step uses (not in any step's ``params``, notebook
+``parameters`` cell, manifest ``defaults``, or ``done_if_exists`` template),
+most likely a typo.  ``in_path`` is exempt.  With ``strict=True`` (CLI
+``--strict``) these become errors and the affected run is skipped.
 
 Loop order is sample-major: each run goes through the full pipeline before
 the next run starts.  If a step fails, the remaining steps for that run are
@@ -76,6 +80,7 @@ import os
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+from string import Formatter
 from typing import Any
 
 import yaml
@@ -261,30 +266,35 @@ def _full_params_for_template(
 
 
 # Run-level keys that are expected to reach every step's notebook and are
-# therefore exempt from the override warning in ``_warn_run_param_overrides``.
+# therefore exempt from the run-key checks in ``_find_run_param_collisions``.
 _RUN_KEY_EXEMPT = {"in_path"}
 
 
-def _warn_run_param_overrides(
+def _find_run_param_collisions(
     manifest: Manifest,
     run: dict[str, Any],
     repo_root: Path,
-) -> None:
-    """Warn when a run-level key overrides a parameter defined in more than
-    one step.
+) -> list[str]:
+    """Messages describing suspicious run-level parameter usage.
 
-    Run entries are merged over every step (see ``resolve_params``), so a
-    run-level key silently replaces per-step values.  Overriding a parameter
-    that only one step defines is a targeted override; a key defined in
-    several steps is broadcast and may clobber differing per-step values —
-    that is what gets warned about.  A parameter counts as defined in a step
-    if the step's ``params`` set it or the notebook's ``parameters`` cell
-    declares it.  ``in_path`` is exempt: it is the sanctioned run-level key
-    that every notebook declares.
+    Two kinds of messages are produced:
+
+    - a run-level key defined in more than one step — run entries are merged
+      over every step (see ``resolve_params``), so such a key is broadcast
+      and may clobber differing per-step values, while overriding a parameter
+      that only one step defines is a targeted override;
+    - a run-level key that no step uses — not in any step's ``params``, not
+      declared in any notebook's ``parameters`` cell, not in the manifest
+      ``defaults``, and not referenced by any ``done_if_exists`` template —
+      most likely a typo.
+
+    A parameter counts as defined in a step if the step's ``params`` set it
+    or the notebook's ``parameters`` cell declares it.  ``in_path`` is
+    exempt: it is the sanctioned run-level key that every notebook declares.
     """
     run_keys = [k for k in run if k not in _RUN_KEY_EXEMPT]
     if not run_keys:
-        return
+        return []
 
     # key -> [(step number, value defined for that step), ...]
     defined_in: dict[str, list[tuple[int, Any]]] = {}
@@ -300,15 +310,40 @@ def _warn_run_param_overrides(
             if key in nb_defaults:
                 defined_in.setdefault(key, []).append((step_idx + 1, nb_defaults[key]))
 
+    # Keys referenced by done_if_exists templates are used even when no
+    # notebook declares them.
+    known_keys = set(manifest.defaults)
+    for step in manifest.steps:
+        templates = (
+            [step.done_if_exists]
+            if isinstance(step.done_if_exists, str)
+            else (step.done_if_exists or [])
+        )
+        for template in templates:
+            try:
+                fields = Formatter().parse(template)
+            except ValueError:
+                continue
+            for _, field, _, _ in fields:
+                if field:
+                    known_keys.add(field.split(".")[0].split("[")[0])
+
+    messages = []
     for key in run_keys:
         occurrences = defined_in.get(key, [])
         if len(occurrences) > 1:
             where = ", ".join(f"step {n}: {v!r}" for n, v in occurrences)
-            print(
-                f"  WARNING: run key {key!r} is defined in multiple steps"
-                f" ({where}) and is overridden to {run[key]!r}",
-                file=sys.stderr,
+            messages.append(
+                f"run key {key!r} is defined in multiple steps ({where})"
+                f" and is overridden to {run[key]!r}"
             )
+        elif not occurrences and key not in known_keys:
+            messages.append(
+                f"run key {key!r} is not used by any step (not in step params,"
+                f" notebook parameters, defaults, or done_if_exists)"
+                f" — possibly a typo"
+            )
+    return messages
 
 
 # ---------------------------------------------------------------------------
@@ -408,6 +443,7 @@ def run_pipeline(
     only_step: int | None = None,
     run_filter: str | None = None,
     stop_on_error: bool = False,
+    strict: bool = False,
     verbose: bool = True,
 ) -> dict[str, int]:
     """Run the pipeline: for each run, execute each step in order.
@@ -423,6 +459,9 @@ def run_pipeline(
         stop_on_error: Abort the entire pipeline on the first failure.
             By default, a failure skips the remaining steps for that run
             and continues with the next run.
+        strict: Treat run-level parameter problems (a run key defined in
+            multiple steps, or a run key no step uses) as errors: the
+            affected run is skipped and counted as failed.
         verbose: Print progress to stdout.
 
     Returns:
@@ -447,7 +486,20 @@ def run_pipeline(
             print(f"\n{'=' * 60}")
             print(f"Run {run_idx + 1}/{len(manifest.runs)}: {label}")
             print(f"{'=' * 60}")
-        _warn_run_param_overrides(manifest, run, repo_root)
+        collisions = _find_run_param_collisions(manifest, run, repo_root)
+        if collisions and strict:
+            summary["total"] += 1
+            summary["failed"] += 1
+            for msg in collisions:
+                print(f"  ERROR: {msg}", file=sys.stderr)
+            if verbose:
+                print("  Run skipped (--strict).")
+            if stop_on_error:
+                print("Stopping (--stop-on-error).", file=sys.stderr)
+                return summary
+            continue
+        for msg in collisions:
+            print(f"  WARNING: {msg}", file=sys.stderr)
 
         for step_idx, step in enumerate(manifest.steps):
             if only_step is not None and step_idx != only_step:
@@ -457,23 +509,23 @@ def run_pipeline(
             params = resolve_params(manifest, step, run)
             full_params = _full_params_for_template(manifest, step, run, repo_root)
 
-            # Skip check
-            if check_done(step.done_if_exists, full_params, repo_root):
+            try:
+                # Skip check
+                if check_done(step.done_if_exists, full_params, repo_root):
+                    if verbose:
+                        print(
+                            f"  Step {step_idx + 1}/{len(manifest.steps)}"
+                            f"  {step.notebook}  SKIP (output exists)"
+                        )
+                    summary["skipped"] += 1
+                    continue
+
                 if verbose:
                     print(
                         f"  Step {step_idx + 1}/{len(manifest.steps)}"
-                        f"  {step.notebook}  SKIP (output exists)"
+                        f"  {step.notebook}  running..."
                     )
-                summary["skipped"] += 1
-                continue
 
-            if verbose:
-                print(
-                    f"  Step {step_idx + 1}/{len(manifest.steps)}"
-                    f"  {step.notebook}  running..."
-                )
-
-            try:
                 run_step(step, params, repo_root, dry_run=dry_run)
                 summary["executed"] += 1
                 if verbose and not dry_run:
