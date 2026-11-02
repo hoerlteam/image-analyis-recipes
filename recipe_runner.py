@@ -78,6 +78,7 @@ from __future__ import annotations
 
 import os
 import sys
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 from string import Formatter
@@ -420,7 +421,15 @@ def run_step(
         os.chdir(nb_path.parent)
         os.environ["RECIPE_NOTEBOOK"] = step.notebook
         os.environ["RECIPE_RUNNER"] = "papermill"
-        pm.execute_notebook(nb_path.name, "/dev/null", parameters=params)
+        # papermill warns that '/dev/null' has no file extension when saving the
+        # executed notebook copy there — harmless, silence it
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message=r"the file is not specified with any extension",
+                category=UserWarning,
+            )
+            pm.execute_notebook(nb_path.name, "/dev/null", parameters=params)
     finally:
         os.chdir(old_wd)
         for k, v in saved.items():
