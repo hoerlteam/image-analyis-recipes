@@ -1,0 +1,58 @@
+#
+# Symbiont-LAMP1 Analysis (in max projection)
+# ===============================================
+# Main idea:
+#  1. segment symbionts (in chlorophyll autofluorescense channel)
+#  2. measure LAMP1 intensity 
+
+steps:
+
+  # 0. do quick visualization
+  - notebook: visualization/lif_quick_visualization.ipynb
+    params: {do_color: true, visualization_colors: [blue, red, green]}
+    done_if_exists: "{in_path}/{out_subdir}"
+
+  # 1. resave as tiff, with max. projection
+  - notebook: resave/resave_lif_as_tiff.ipynb
+    params: {out_subfolder: tif_maxprojections, z_projection_type: max}
+    done_if_exists: "{in_path}/{out_subfolder}"
+
+  # 2a. segment symbionts with cellpose:  'z' images / zoomed-in regions
+  - notebook: segmentation/cellpose_segmentation_3d.ipynb
+    params: {
+      image_subdirectory: tif_maxprojections, image_file_pattern: "*_z_*ch1*.tif", out_subdirectory: segmentation_symbionts,
+      cp_eval_kwargs: {
+        diameter: 120,
+        normalize: {percentile: [2.0, 99.95]}}
+    }
+  # done_if_exists: "{in_path}/{out_subdirectory}"
+
+  # 2b. segment symbionts with cellpose:  'o' images / whole animal
+  - notebook: segmentation/cellpose_segmentation_3d.ipynb
+    params: {
+      image_subdirectory: tif_maxprojections, image_file_pattern: "*_o_*ch1*.tif", out_subdirectory: segmentation_symbionts,
+      cp_eval_kwargs: {
+        diameter: 40,
+        normalize: {percentile: [2.0, 99.95]}}
+    }
+
+  # 3a. get outline of segmentation
+  - notebook: segmentation/modify_labels_rings.ipynb
+    params: {labels_subdirectory: segmentation_symbionts, out_subdirectory: segmentation_symbionts_border, distances: [0, 5], side: both}
+
+  # 3b. get ring around each symbiont (outside) for background
+  - notebook: segmentation/modify_labels_rings.ipynb
+    params: {labels_subdirectory: segmentation_symbionts, out_subdirectory: segmentation_symbionts_background, distances: [15, 35], side: outside}
+
+  # do LAMP1 intensity measurement for both border and background -> save as table
+  - notebook: measurement/regionprops_tables.ipynb
+    params: {
+      segmentations: [
+        ['symbiont', 'segmentation_symbionts/[!.]*.tif'],
+        ['border', 'segmentation_symbionts_border/[!.]*.tif'],
+        ['background', 'segmentation_symbionts_background/[!.]*.tif'],
+      ],
+      intensity_images: ['lamp1', 'tif_maxprojections/[!.]*ch2*.tif'],
+      shape_properties_to_include: ['area', 'eccentricity'],
+      image_wide_properties: ['mode']
+    }
