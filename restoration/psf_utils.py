@@ -56,7 +56,8 @@ from calmutils.restoration import subpixel_shift, rl_deconvolve, resample_psf
 from calmutils.restoration.deconvolution import _convolve_same
 from calmutils.restoration.psf_metrics import axis_profile, profile_metrics
 from calmutils.morphology import bead_kernel
-from calmutils.localization.util import nearest_neighbor_distances
+from calmutils.localization.util import (nearest_neighbor_distances,
+                                         kernel_weights, effective_sample_size)
 
 __all__ = [
     "align_bead_stack",
@@ -65,6 +66,7 @@ __all__ = [
     "filter_close_beads",
     "per_bead_metrics",
     "filter_mad_outliers",
+    "local_psf",
     "distill_psf",
 ]
 
@@ -456,6 +458,37 @@ def filter_mad_outliers(values, *, n_mad=4.0, side="both"):
     return keep & finite
 
 
+def local_psf(stack, used, locations, psz, center, bandwidth, *,
+              background="shell", normalize="sum", kind="gaussian"):
+    """Kernel-weighted local PSF around a field position (local aberrations).
+
+    Coherent local averaging of the aligned bead crops: weights
+    K(|pos_i - center| / bandwidth) from
+    :func:`calmutils.localization.util.kernel_weights` (physical units via
+    ``psz``), then :func:`average_stack` with those weights. Averaging crops
+    (not per-bead FWHM numbers) preserves PSF shape and gains SNR ~ sqrt(ESS).
+
+    Parameters
+    ----------
+    stack, used : from :func:`align_bead_stack`
+    locations : (N, ndim) bead positions (array-index coordinates)
+    psz : voxel size per axis
+    center : (ndim,) position to average around, same coordinates as locations
+    bandwidth : kernel width h in psz units (rule of thumb: a few PSF FWHM)
+
+    Returns
+    -------
+    psf : local PSF (unit sum for normalize="sum")
+    ess : Kish effective sample size of the weights - flag noisy local
+          estimates when ess is small
+    """
+    w = kernel_weights(locations, center, bandwidth, psz=psz, kind=kind)
+    ess = effective_sample_size(w)
+    psf = average_stack(stack, used, background=background,
+                        normalize=normalize, weights=w)
+    return psf, ess
+
+
 # ---------------------------------------------------------------------------
 # PSF distillation (deconvolution of the bead structure)
 # ---------------------------------------------------------------------------
@@ -768,6 +801,16 @@ def _selftest():
     ok &= (not keep_h[0]) and bool(keep_h[1]) and (not keep_h[2])
     ok &= bool(keep_l[0]) and (not keep_l[1]) and (not keep_l[2])
     ok &= bool(keep_const.all())
+
+    # ---------------- local_psf (kernel-weighted local average) ----------------
+    psf_loc, ess = local_psf(stack_a, used_a, locs, psz=(150.0, 50.0, 50.0),
+                             center=locs[0], bandwidth=2000.0)
+    s_loc = [_axis_sigma(psf_loc, ax) for ax in range(3)]
+    s_glob = [_axis_sigma(psf, ax) for ax in range(3)]
+    print(f"[local] psf at bead 0: ess {ess:.1f}, sum {psf_loc.sum():.6f}, "
+          f"sigmas {np.round(s_loc, 3)} vs global {np.round(s_glob, 3)}")
+    ok &= abs(psf_loc.sum() - 1.0) < 1e-6 and ess >= 1.0
+    ok &= all(abs(s_loc[ax] / sigma_beads[ax] - 1) < 0.08 for ax in range(3))
 
     # ---------------- end-to-end: average -> distill -> resample ----------------
     psz_nm = np.array([150.0, 50.0, 50.0])
