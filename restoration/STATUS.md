@@ -19,13 +19,17 @@ papermill). Both suites pass, clean under `-W error::DeprecationWarning`:
 ## Notebooks (all: one dataset folder in, results subfolder out, `parameters` cell tagged for papermill / `recipe_runner.py`)
 
 - **`psf_extraction.ipynb`** — `in_path/<tif_subdir>/*.tif` (ImageJ tiffs;
-  psz from metadata or `psz` param) → `in_path/<out_subdir>/`: per-file
-  `<stem>_psf_{avg,distilled}.tif` + JSON sidecars, pooled `ALL_psf_*.tif` +
-  sidecars, `detections.csv` (pooled, QC mask columns) + per-file CSVs,
-  `aligned_stack.npz`, `report.png`, provenance. Pipeline: LoG detect +
-  `refine_point_lsq` → `align_bead_stack` per file, pooled → `per_bead_metrics`
-  + `filter_close_beads` + `filter_mad_outliers` → `average_stack` per file and
-  pooled → optional `distill_psf` → `psf_metrics` report. Runner skip:
+  psz per file from metadata, or common `psz` param) → `in_path/<out_subdir>/`:
+  per-file `<stem>_psf_{avg,distilled}.tif` + JSON sidecars (own psz, source
+  file), pooled `ALL_psf_*.tif` + sidecars (only if all files share one pixel
+  size; otherwise warn + per-file only), `detections.csv` (pooled, QC mask
+  columns) + per-file CSVs, `aligned_stack.npz` (incl. `psz_per_file`), report
+  figures `report_ALL.png` + per-file `report_<stem>.png` (orthogonal cuts in
+  nm + marginals; `_distilled` variants when distilling), provenance.
+  Pipeline: LoG detect + `refine_point_lsq` → `align_bead_stack` per file,
+  pooled → `per_bead_metrics` + `filter_close_beads` (per file) +
+  `filter_mad_outliers` → `average_stack` per file (pooled only if psz
+  uniform) → optional `distill_psf` → `psf_metrics` report. Runner skip:
   `done_if_exists: "{in_path}/psf/ALL_psf_avg.tif"`.
 - **`deconvolution.ipynb`** — `in_path/<tif_subdir>/*.tif` + explicit `psf_path`
   (PSF tiff from extraction; psz from its `.json` sidecar) →
