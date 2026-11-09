@@ -3,83 +3,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 import lightning.pytorch as L
 
-
-class ConvBlock(nn.Module):
-    """
-    Simple module consisting of multiple 3x3 convolutions with LeakyReLUs as activations.
-
-    The first conv maps from input to output channel number and can have stride > 1 to achieve pooling.
-    All other convolutions retain the shape of the first intermediate output.
-
-    Optionally, the block can be residual, in which case the intermediate output
-    of the first conv is added to the output of the whole block at the end.
-    """
-
-    def __init__(
-        self,
-        in_channels,
-        out_channels,
-        dimensionality=2,
-        n_convs=3,
-        stride_1st=1,
-        residual=False,
-        leaky_relu_slope=0.01,
-        batch_norm=False,
-        groups=1,
-    ) -> None:
-
-        super().__init__()
-
-        if dimensionality not in (1, 2, 3):
-            raise ValueError("Only 1D, 2D, 3D is supported.")
-
-        conv_class = {1: nn.Conv1d, 2: nn.Conv2d, 3: nn.Conv3d}[dimensionality]
-        batch_norm_class = {1: nn.BatchNorm1d, 2: nn.BatchNorm2d, 3: nn.BatchNorm3d}[
-            dimensionality
-        ]
-
-        self.residual = residual
-        self.batch_norm = batch_norm
-        self.steps = []
-        for i in range(n_convs):
-            if i == 0:
-                # first convolution may have stride != 1 to achieve pooling effect
-                conv = conv_class(
-                    in_channels,
-                    out_channels,
-                    3,
-                    stride=stride_1st,
-                    padding=1,
-                    groups=groups,
-                )
-            else:
-                conv = conv_class(
-                    out_channels, out_channels, 3, padding=1, groups=groups
-                )
-            self.steps.append(conv)
-
-            # add batch norm layer if desired
-            if batch_norm:
-                self.steps.append(batch_norm_class(out_channels))
-
-            self.steps.append(nn.LeakyReLU(leaky_relu_slope))
-        self.steps = nn.Sequential(*self.steps)
-
-    def forward(self, x):
-        if self.residual:
-            # apply first conv and activation
-            x1 = self.steps[: (3 if self.batch_norm else 2)](x)
-            # apply other layers (will be identity if n_convs=1) and add result from first conv
-            x = self.steps[(3 if self.batch_norm else 2) :](x1) + x1
-            return x
-        else:
-            return self.steps(x)
+from calmutils.nn.blocks import ConvBlock, ConvBlockConfig
+from calmutils.nn.unet import remap_legacy_state_dict
 
 
 class SimpleCNNClassifier(nn.Module):
     """
-    Simple flexible classification CNN, consisting of U-Net-like conv. blocks
-    followed by averaging pixels and a linear classification head.
+    Simple flexible classification CNN, consisting of conv. blocks (shared calmutils.nn
+    ConvBlock) followed by averaging pixels and a linear classification head.
 
     Currently 2D-only.
     """
@@ -98,7 +29,12 @@ class SimpleCNNClassifier(nn.Module):
             gi = self._ngroups[block_idx]
 
             self.encoder.append(
-                ConvBlock(c_in, c_out, residual=True, batch_norm=True, groups=gi)
+                ConvBlock(
+                    c_in,
+                    c_out,
+                    ConvBlockConfig(n_convs=3, residual=True, norm="batch", groups=gi),
+                    dimensionality=2,
+                )
             )
             # add max pool after each conv block except last
             # -> there, it will be done by adaptive avg pool
@@ -113,6 +49,15 @@ class SimpleCNNClassifier(nn.Module):
             nn.Flatten(),
             nn.Linear(intermediate_channels[-1], out_channels),
         )
+
+    def load_state_dict(self, state_dict, strict=True):
+        # accept checkpoints saved with the legacy ConvBlock layout (flat 'steps' Sequential)
+        try:
+            return super().load_state_dict(state_dict, strict=strict)
+        except RuntimeError:
+            if not strict:
+                raise
+            return super().load_state_dict(remap_legacy_state_dict(state_dict), strict=True)
 
     def forward(self, x):
         x = self.encoder(x)
