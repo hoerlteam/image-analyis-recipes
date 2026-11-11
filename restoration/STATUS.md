@@ -8,9 +8,10 @@ CalmUtils and image-analyis-recipes. (extracted from older exploratory notebooks
 | Layer | Location | Contents |
 |---|---|---|
 | Generic library | `CalmUtils/calmutils/restoration/` (`shift.py`, `deconvolution.py`, `resampling.py`, `psf_metrics.py`), `calmutils/morphology/structuring_elements.py` (`bead_kernel`), `calmutils/localization/util/point_distances.py` | array-level functions, no microscopy domain assumptions |
-| Bead workflow layer | `image-analyis-recipes/restoration/psf_utils.py` | bead pipeline glue; imports CalmUtils one-way |
+| Recipe-book helpers | repo root `recipe_utils.py` | shared recipe *policy* (not algorithms): filename grouping (`assign_groups`), filename-safe stems (`sanitize_stem`); imported by notebooks and domain modules |
+| Bead workflow layer | `image-analyis-recipes/restoration/psf_utils.py` | bead pipeline glue; imports CalmUtils one-way, re-exports `assign_groups` from `recipe_utils.py` |
 | User-facing notebooks | `image-analyis-recipes/restoration/*.ipynb` | `psf_extraction`, `deconvolution`, `psf_aberrations` |
-| Tests | `CalmUtils/test_restoration.py` (generic, run directly), `python restoration/psf_utils.py` (workflow self-test) | |
+| Tests | `CalmUtils/test_restoration.py` (generic, run directly), `python recipe_utils.py` (recipe helpers), `python restoration/psf_utils.py` (workflow self-test) | |
 
 Environment: env-py314 (Python 3.14.6, numpy 2.4.6, scipy, scikit-image,
 papermill). Both suites pass, clean under `-W error::DeprecationWarning`:
@@ -20,17 +21,28 @@ papermill). Both suites pass, clean under `-W error::DeprecationWarning`:
 
 - **`psf_extraction.ipynb`** — `in_path/<tif_subdir>/*.tif` (ImageJ tiffs;
   psz per file from metadata, or common `psz` param) → `in_path/<out_subdir>/`:
-  per-file `<stem>_psf_{avg,distilled}.tif` + JSON sidecars (own psz, source
-  file), pooled `ALL_psf_*.tif` + sidecars (only if all files share one pixel
-  size; otherwise warn + per-file only), `detections.csv` (pooled, QC mask
-  columns) + per-file CSVs, `aligned_stack.npz` (incl. `psz_per_file`), report
-  figures `report_ALL.png` + per-file `report_<stem>.png` (orthogonal cuts in
+  pooled `<group>_psf_*.tif` + sidecars per group (only if all
+  files of the group share one pixel size; otherwise warn + per-file only for
+  that group), `detections.csv` (pooled, QC mask columns + `group`),
+  `aligned_stack.npz` (incl. `psz_per_file`, `group_idx`), report figures
+  `report_<group>.png` (orthogonal cuts in
   nm + marginals; `_distilled` variants when distilling), provenance.
+  Per-file outputs (`<stem>_psf_{avg,distilled}.tif` + sidecars, per-file
+  `detections_<stem>.csv`, `report_<stem>.png`) are gated by `save_per_file`
+  (None = auto: on when `group_patterns` is None, off when grouping — the pooled
+  `detections.csv` + `aligned_stack.npz` then suffice to reconstruct per-file
+  results; per-file PSFs are still computed in memory for the outlier warning).
+  Grouping via `group_patterns` (dict group name → filename glob or list of
+  globs; a list is OR-ed within a group, use one combined glob for AND;
+  first match wins, files matching no pattern are excluded with a
+  warning; None → single group `ALL`, i.e. previous behavior / `ALL_*` outputs).
   Pipeline: LoG detect + `refine_point_lsq` → `align_bead_stack` per file,
   pooled → `per_bead_metrics` + `filter_close_beads` (per file) +
-  `filter_mad_outliers` → `average_stack` per file (pooled only if psz
-  uniform) → optional `distill_psf` → `psf_metrics` report. Runner skip:
-  `done_if_exists: "{in_path}/psf/ALL_psf_avg.tif"`.
+  `filter_mad_outliers` (per group) → `average_stack` per file and per group
+  (pooled only if psz uniform within the group) → optional `distill_psf` →
+  `psf_metrics` report. Runner skip:
+  `done_if_exists: "{in_path}/psf/ALL_psf_avg.tif"` (with `group_patterns`, use
+  e.g. `"{in_path}/psf/ch488_psf_avg.tif"`).
 - **`deconvolution.ipynb`** — `in_path/<tif_subdir>/*.tif` + explicit `psf_path`
   (PSF tiff from extraction; psz from its `.json` sidecar) →
   `resample_psf` onto each image grid → `rl_deconvolve(edge="reflect", num_iter,
@@ -62,6 +74,7 @@ Workflow layer (`restoration/psf_utils.py`):
 | `filter_mad_outliers(values, *, n_mad=4.0, side="both")` | MAD keep-mask (×1.4826); NaN rejected; MAD=0 → IQR fallback |
 | `distill_psf(observed_psf, kernel=None, *, bead_diameter=None, psz=None, ...)` | PSF distillation = `rl_deconvolve` + bead kernel (array, or model sphere from `bead_diameter`+`psz`); unit-sum out |
 | `local_psf(stack, used, locations, psz, center, bandwidth, ...)` → `(psf, ess)` | kernel-weighted local PSF; ess = Kish ESS noise flag |
+| `assign_groups(filenames, patterns=None, *, default_group='ALL')` → `(group_names, group_idx)` | in `recipe_utils.py` (repo root; re-exported by `psf_utils.py`): filename-glob grouping of input files into named groups; `group_idx == -1` = matched no pattern (excluded) |
 
 CalmUtils:
 
@@ -110,6 +123,14 @@ Typical QC flow:
   crop extent `max(psf_size)·psz`); `quantile` mode for exploration.
 - **No stem auto-matching** between bead PSFs and sample images — `psf_path`
   is explicit in the deconvolution notebook.
+- **File grouping** (`group_patterns`, via `assign_groups` in `recipe_utils.py`): None = single `ALL` group, so runner
+  `done_if_exists` on `ALL_psf_avg.tif` and all previous outputs are unchanged.
+  With patterns, everything that pools (group average, MAD filter, psz-uniformity
+  check, per-file FWHM outlier warning) is per group — different channels/depths
+  can have genuinely different FWHM, a global MAD/median would reject the wrong
+  beads. Per-file PSFs/reports are always written. Unmatched files are excluded
+  with a warning, never silently pooled; multi-match → first pattern wins +
+  warning; group names are sanitized to safe filename stems.
 - **Depth analysis auto-gated** on z-span (single-layer samples skip it).
 - **Metrics are nonparametric** (profile FWHM/sigma, EE, …) — no Gaussian
   fits for STED PSFs; Gaussian fitting for localization stays in
@@ -126,7 +147,14 @@ Typical QC flow:
   edge cases (single/border bead, sub-voxel bead no-op), QC masks, split-API
   equivalence, per-bead metrics, MAD, distill wrapper, local_psf, end-to-end
   average→distill→resample round trip → `SELFTEST PASSED`.
-- Notebooks: papermill-executed on synthetic data, numbers above.
+- Notebooks: papermill-executed on synthetic data, numbers above. Grouping
+  verified on a synthetic 2-channel dataset (ch0/ch1 with different true FWHM
+  plus one unmatched file): per-group `<group>_psf_*.tif`/reports/sidecars
+  (`group` + `files` in sidecar), `group` column in `detections.csv`,
+  `group_idx` in `aligned_stack.npz`, unmatched file excluded with warning;
+  `group_patterns=None` reproduces the `ALL_*` outputs; mixed pixel size within
+  a group → warning, per-file PSFs only for that group while other groups still
+  pool.
 
 ## Known limitations (also in code docstrings)
 

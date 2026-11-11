@@ -27,6 +27,11 @@ filter_mad_outliers : median/MAD outlier keep-mask (1.4826-scaled MAD)
 distill_psf      : PSF distillation = rl_deconvolve with the bead kernel
                    (supplied kernel array or model sphere from bead_diameter+psz),
                    unit-sum output
+assign_groups    : re-exported from recipe_utils.py (repo root, shared
+                   recipe-book helpers) - assign multi-file inputs to named
+                   groups by filename glob patterns (None -> single 'ALL'
+                   group); used by the psf_extraction notebook for per-group
+                   pooled PSFs
 
 Typical flow:
     stack, used = align_bead_stack(img, locs, psf_size)
@@ -48,9 +53,20 @@ TODO
 - Stack-wide background estimate from bead-free regions.
 """
 
+import sys
 import warnings
+from pathlib import Path
 
 import numpy as np
+
+# shared recipe-book helpers live at the repo root (recipe_utils.py); find it
+# from cwd or any parent (works for interactive runs and `python psf_utils.py`)
+for _p in [Path.cwd(), *Path.cwd().parents]:
+    if (_p / 'recipe_utils.py').is_file():
+        if str(_p) not in sys.path:
+            sys.path.insert(0, str(_p))
+        break
+from recipe_utils import assign_groups  # re-exported for backward compatibility
 
 from calmutils.restoration import subpixel_shift, rl_deconvolve, resample_psf
 from calmutils.restoration.deconvolution import _convolve_same
@@ -68,6 +84,7 @@ __all__ = [
     "filter_mad_outliers",
     "local_psf",
     "distill_psf",
+    "assign_groups",
 ]
 
 
@@ -801,6 +818,14 @@ def _selftest():
     ok &= (not keep_h[0]) and bool(keep_h[1]) and (not keep_h[2])
     ok &= bool(keep_l[0]) and (not keep_l[1]) and (not keep_l[2])
     ok &= bool(keep_const.all())
+
+    # ---------------- assign_groups (lives in recipe_utils.py, re-exported) ----------------
+    import recipe_utils
+    gnames, gidx = assign_groups(['a_ch0.tif', 'b_ch1.tif'], {'ch0': '*_ch0*', 'ch1': '*_ch1*'})
+    print(f"[groups] re-export from recipe_utils is the same function: "
+          f"{assign_groups is recipe_utils.assign_groups}, names {gnames}, idx {gidx.tolist()}")
+    ok &= assign_groups is recipe_utils.assign_groups
+    ok &= gnames == ['ch0', 'ch1'] and (gidx == [0, 1]).all()
 
     # ---------------- local_psf (kernel-weighted local average) ----------------
     psf_loc, ess = local_psf(stack_a, used_a, locs, psz=(150.0, 50.0, 50.0),
