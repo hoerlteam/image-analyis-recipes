@@ -104,38 +104,6 @@ def resave_auto_nd2(nd2files):
                 for ch in range(img.shape[1]):
                     tifffile.imsave(f"{nd2files}/tif/{name}_ch{ch}.tif", img[field, ch, :, :, :].astype(np.uint16))
 
-
-################################################
-# reads all msr files and resaves them as tif 
-def resave_msr(folder,out):
-
-    files = glob(f"{folder}/raw/*.msr")
-
-    # create out "tif" directory if it doesnt exist yet
-    out = f"{folder}/tif"
-    os.makedirs(out, exist_ok=True)
-
-    for file in files:
-
-        with OBFFile(file) as f:
-
-            for idx in range(0,len(f.shapes)):
-                
-                # reading image data
-                img = f.read_stack(idx) # read stack with index idx into numpy array
-
-                # metadata
-                stack_sizes = f.shapes # list of stack sizes/shapes, including stack and dimension names
-                pixel_sizes = f.pixel_sizes # like sizes, but with pixel sizes (unit: meters)
-                
-                # save
-                name = os.path.splitext(os.path.basename(file))[0]
-                tifffile.imsave(f"{out}/{name}_ch{idx}.tif", img.astype(np.int32)) 
-
-                # TODO save metadata, like pixel sizes as well
-    #            resolution=(pixel_sizes[idx].sizes['ExpControl X']*1e+6, 
-    #            pixel_sizes[idx].sizes['ExpControl Y']*1e+6, 'None')) 
-
     
 ##################### tif ######################
 def split_tif(in_path, tif_path,out_path):
