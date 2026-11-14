@@ -48,11 +48,17 @@ papermill). Both suites pass, clean under `-W error::DeprecationWarning`:
   `resample_psf` onto each image grid → `rl_deconvolve(edge="reflect", num_iter,
   bandlimit, damp)` → `<stem>_deconv.tif` + sidecar + `deconv_summary.csv` +
   `report.png`.
-- **`psf_aberrations.ipynb`** (draft) — reads an extraction `psf_dir`
-  (`aligned_stack.npz`, `detections.csv`, sidecar) → `local_psf` on a (y,x)
-  grid × z levels if `do_depth` (`'auto'` = only if kept beads span >
-  `depth_min_span_nm` in z; single coverslip layer → skipped) →
-  `local_psf_metrics.csv`, `per_bead_metrics.csv`, `maps.png`, `depth.png`.
+- **`psf_aberrations.ipynb`** — reads an extraction `psf_dir`
+  (`aligned_stack.npz` + `detections.csv`; psz from the npz's
+  `psz_per_file`/`file_idx`, no sidecar JSON needed, so grouped extraction
+  results work) → `local_psf` on a (y,x) grid × z levels if `do_depth`
+  (`'auto'` = only if kept beads span > `depth_min_span_nm` in z; single
+  coverslip layer → skipped) → `local_psf_metrics.csv`, `per_bead_metrics.csv`,
+  `maps.png`, `depth.png`. `by`/`select` split the analysis into one run per
+  detections.csv column value (`by='group'`/`'file'`, `select='all'|value|list`;
+  `by=None` = single run over all beads, flat `out_subdir` = legacy); with `by`
+  set, each run writes to `psf_dir/<out_subdir>/<value>/`. Per-run psz
+  uniformity is checked (mixed-psz selection → error suggesting by/select).
   capture called with `base_dir_key='psf_dir'`.
 
 All three verified end-to-end with papermill on synthetic data (0 errors):
@@ -83,7 +89,7 @@ CalmUtils:
 | `subpixel_shift(img, shift)` — `out[x]=img[x−shift]`; pass `−off` to center | `restoration/shift.py` |
 | `rl_deconvolve(observed, kernel, *, num_iter, bandlimit (cycles/voxel), edge, damp, eps)` | `restoration/deconvolution.py` |
 | `resample_psf(psf, psz_from, psz_to, *, out_size)` → `(psf, psz_eff)` | `restoration/resampling.py` |
-| `axis_profile`, `profile_metrics` (+hw/asymmetry/skew), `psf_metrics` (+asymmetry/astigmatism/per-side sidelobe/ring radius), `encircled_energy`, `radius_at_fraction` — all nonparametric | `restoration/psf_metrics.py` |
+| `axis_profile`, `profile_metrics` (+hw/asymmetry/skew), `psf_metrics` (+asymmetry/astigmatism/per-side sidelobe/ring radius), `second_moments` (+covariance tensor, `orientation_deg`/`elongation` of the last-two-axes plane - captures diagonal elongation that 1D marginals miss), `synthetic_psf` (known-aberration PSFs), `encircled_energy`, `radius_at_fraction` — all nonparametric | `calmutils/restoration/psf_metrics.py`, `synthetic.py` |
 | `bead_kernel(psz, bead_diameter, *, supersample=4)` | `morphology/structuring_elements.py` |
 | `nearest_neighbor_distances`, `kernel_weights`, `effective_sample_size` | `localization/util/point_distances.py` |
 
@@ -132,12 +138,21 @@ Typical QC flow:
   with a warning, never silently pooled; multi-match → first pattern wins +
   warning; group names are sanitized to safe filename stems.
 - **Depth analysis auto-gated** on z-span (single-layer samples skip it).
+- **Downstream consumers read the npz, not sidecars, for psz** —
+  `psf_aberrations.ipynb` derives psz per bead subset from
+  `psz_per_file[file_idx]` and checks uniformity, so grouped extraction results
+  (no `ALL_*`) work unchanged.
 - **Metrics are nonparametric** (profile FWHM/sigma, EE, …) — no Gaussian
   fits for STED PSFs; Gaussian fitting for localization stays in
   `calmutils.localization` (`refine_point_lsq`).
 
 ## Validation
 
+- `CalmUtils/psf_metrics_gallery.ipynb`: synthetic PSFs with known aberrations
+  (`calmutils.restoration.synthetic_psf`) rendered next to their
+  `psf_metrics`/`second_moments` readouts - visual reference for which metric
+  responds to which aberration (e.g. diagonal elongation: `astigmatism` ~ 0 but
+  `orientation_deg`/`elongation` carry it).
 - `CalmUtils/test_restoration.py`: shift sign, conv alignment, bead kernel,
   RL vs skimage + flux + bandlimit + damp + reflect (2D corner and 3D
   non-cubic kernel) + kernel guards, resample up/down/×1.5/round-trip +

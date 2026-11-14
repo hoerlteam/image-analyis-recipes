@@ -10,7 +10,9 @@ CalmUtils/test_restoration.py):
                                            edge="reflect" padding, damp knob)
   calmutils.restoration.resample_psf     : band-limited PSF resampling to a new
                                            voxel size, centroid on center voxel
-  calmutils.restoration.psf_metrics      : profile-based PSF quantification
+  calmutils.restoration.psf_metrics      : profile-based PSF quantification,
+                                           incl. second_moments (orientation_deg /
+                                           elongation of the lateral plane)
   calmutils.restoration.profile_metrics / axis_profile : 1D profile metrics
   calmutils.restoration.encircled_energy / radius_at_fraction
   calmutils.morphology.bead_kernel       : supersampled solid-sphere kernel
